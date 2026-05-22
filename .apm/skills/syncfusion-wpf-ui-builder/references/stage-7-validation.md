@@ -63,6 +63,22 @@
    - **Issue:** If circular resource references → Infinite loop during theme loading
    - **Fix:** Verify all StaticResource/DynamicResource keys are defined in correct ResourceDictionary scope
 
+   **E1. Resource Binding Best Practices:**
+   
+   - Verify all referenced resource keys exist in App.xaml or merged ResourceDictionaries before binding
+   - When using `{StaticResource}` or `{DynamicResource}`, ensure the key is defined in the appropriate ResourceDictionary
+   - For Effect properties, define Effect resources (DropShadowEffect, BlurEffect, etc.) with complete declarations:
+     ```xaml
+     <!-- Define in Themes/Effects.xaml -->
+     <DropShadowEffect x:Key="MyShadow" Color="#000000" Opacity="0.5" />
+     
+     <!-- Merge into App.xaml -->
+     <ResourceDictionary Source="Themes/Effects.xaml" />
+     ```
+   - Ensure all Effect elements have valid color formats (e.g., `#FFFFFFFF`) and proper closing tags
+   - Verify color values use valid ARGB format; invalid formats prevent resource resolution at runtime
+   - Keep ResourceDictionary paths relative or use `pack://` URIs; avoid absolute file paths that fail on deployment
+
    **F. Generated Style & Template ResourceDictionary Validation:**
    - Check: If code generation created new Style resources, are they properly defined with:
      - `x:Key` attribute with unique identifier
@@ -91,20 +107,46 @@
    - **Issue:** Circular references cause infinite loop, app cannot start
    - **Fix:** Ensure flat dependency hierarchy (theme → custom, no cycles)
 
-1. **Validate Syncfusion Integration & WPF Standards:**
-   - **Namespace Validation:** Ensure no unused or invalid Syncfusion namespaces are present (e.g., remove `Syncfusion.UI.Xaml.Grid` if not using SfDataGrid to prevent "Undefined CLR namespace" errors).
-   - **Namespace Duplication Check:** Verify no namespace prefix conflicts (e.g., two different CLR namespaces assigned to `syncfusion` prefix) which cause "Duplicate definition of namespace" errors
-   - **API Match Validation:** Verify property names against current Syncfusion assemblies:
-     - `SfDigitalGauge`: Do NOT use `CharacterCount` (calculated automatically from `Value`).
-     - `ComboBoxAdv`: Use `IsEditable="True"` for filtering/searching (do NOT use `AllowFiltering`).
-   - **XAML Syntax Check:** Verify all tags (`Grid`, `Window`, etc.) are correctly closed to prevent "Unexpected end of file" errors.
-   - **Layout Property Validation:** Ensure properties are valid for the container (e.g., `StackPanel` does NOT support `Padding`; use `Margin` or `Grid` wrapper).
-   - **SfSkinManager Check:** If Syncfusion controls used, verify code-behind calls `SfSkinManager.SetTheme()` after `InitializeComponent()` to prevent missing theme resources at runtime.
-   - **License Registration Check:** Verify `SyncfusionLicenseProvider.RegisterLicense()` is called in `App.xaml.cs` before window creation to prevent evaluation watermarks.
-   - **Binding Path Validation:** Verify all binding paths (e.g., `{Binding PropertyName}`) reference existing ViewModel properties to prevent Output window binding errors.
-   - **ResourceDictionary Merge Order:** Verify theme ResourceDictionaries merged BEFORE control-specific styles in App.xaml to prevent style override issues at runtime.
+**2. XAML Tag Structure & Runtime Validation (CRITICAL):**
 
-2. **Compile & Build Validation:**
+   **A. Tag Matching & Structure:**
+   - Ensure every opening tag `<Tag>` has a matching closing tag `</Tag>` or is self-closed with `<Tag />`
+   - Verify nested tags close in correct order: `<Outer><Inner></Inner></Outer>` 
+   - Validate opening and closing tag counts match in each file to prevent parse errors
+   - Check ResourceDictionary files use correct root element with proper xmlns declarations:
+     ```xaml
+     <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+         <SolidColorBrush x:Key="Key">#FF000000</SolidColorBrush>
+     </ResourceDictionary>
+     ```
+   
+   **B. Property Element Syntax:**
+   - Property elements must match parent control: `<TextBlock.Foreground>` for TextBlock, not `<TextBlock.Foregron>`
+   - Verify property names are spelled correctly (case-sensitive) to ensure elements are recognized
+   - Ensure all property elements have proper closing tags matching the parent control name
+   
+   **C. Binding & Resource References:**
+   - Quote all binding expressions: `Text="{Binding PropertyName}"` and `Background="{StaticResource BrushKey}"`
+   - Unquoted bindings prevent proper XAML parsing
+   - Validate referenced resource keys exist before runtime binding attempts
+   
+   **D. Special Characters & Escaping:**
+   - Escape raw characters: `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;`, `"` → `&quot;`
+   - Ensure text content does not contain unescaped special characters that break XAML parsing
+
+**3. Validate Syncfusion Integration & WPF Standards:**
+   - **Namespace Validation:** Ensure no unused Syncfusion namespaces (remove if not using controls)
+   - **Namespace Duplication:** Verify no prefix conflicts (one prefix = one namespace)
+   - **API Match:** `SfDigitalGauge` - don't use `CharacterCount`; `ComboBoxAdv` - use `IsEditable="True"`
+   - **XAML Syntax:** All tags properly closed (Grid, Window, etc.)
+   - **Layout Properties:** `StackPanel` does NOT support `Padding` → use `Margin`
+   - **SfSkinManager:** Call `SfSkinManager.SetTheme()` in code-behind after `InitializeComponent()`
+   - **License:** Verify `SyncfusionLicenseProvider.RegisterLicense()` called in `App.xaml.cs`
+   - **Binding Paths:** All `{Binding}` reference existing ViewModel properties
+   - **Merge Order:** Theme ResourceDictionaries FIRST, then custom styles
+
+4. **Compile & Build Validation:**
    - Run: `dotnet build` to compile generated code
    - Check: No C# compilation errors or warnings
    - Verify: All Syncfusion NuGet packages resolve correctly
@@ -112,25 +154,39 @@
    - **Issue:** If build fails → Generated code has syntax errors, missing dependencies, or XAML parse issues
    - **Fix:** Address compilation errors before proceeding to next stage
 
-3. **Validate UI Automation Support & Accessibility:**
+**Quick Reference: XamlParseException Runtime Issues & Fixes**
 
-2. **Check Security:**
+| Runtime Error | Root Cause | Quick Fix | Check |
+|---|---|---|---|
+| `StaticResourceHolder threw exception` | Key not found | Check App.xaml MergedDictionaries | All {StaticResource X} has X defined |
+| `Set property Effect threw exception` | Effect missing/invalid | Add Effect to ResourceDictionary | Effect x:Key exists, merged, proper type |
+| `Unexpected end of file` | Unclosed tag | Close all tags: `</Tag>` | `<count = </count` in file |
+| `The text object not consumed` | Unquoted binding | Quote: `Text="{Binding}"` | All bindings have quotes |
+| `does not exist in namespace` | Undefined prefix | Add `xmlns:prefix="..."` | All prefixes declared |
+| `Cannot locate resource` | Wrong ResourceDictionary path | Use relative: `Themes/File.xaml` | No absolute paths, verify file exists |
+
+**Common XAML Runtime Issues Checklist:**
+- [ ] All `{StaticResource ...}` keys exist in App.xaml or MergedDictionaries
+- [ ] All Effect properties reference existing Effect resources (DropShadowEffect, BlurEffect)
+- [ ] Opening tag count = Closing tag count in each file
+- [ ] All binding expressions quoted: `"{Binding ...}"` not `{Binding ...}`
+- [ ] All namespace prefixes declared with `xmlns:prefix="..."`
+- [ ] ResourceDictionary paths relative (never absolute C:\ paths)
+- [ ] No duplicate `x:Key` values in same ResourceDictionary
+- [ ] Style/Template elements have `x:Key` attribute
+- [ ] Property elements match parent control: `<TextBlock.Foreground>` not `<TextBlock.Foregron>`
+
+5. **Validate UI Automation & Security:**
+   - AutomationProperties.AutomationId on interactive controls
    - No XAML injection vulnerabilities (XamlReader.Parse with untrusted input)
-   - No hardcoded secrets/API keys in code-behind or XAML
-   - Input validated before processing (TextBox/PasswordBox validation)
-   - No unsafe reflection or dynamic assembly loading
+   - No hardcoded secrets/API keys in XAML or code-behind
 
-3. **Verify Performance:**
-   - MVVM bindings correctly implemented (INotifyPropertyChanged)?
-   - Virtualization enabled for large lists (SfDataGrid with VirtualizingStackPanel)?
-   - No blocking UI operations on main thread?
-   - Async/await used for long-running operations?
-
-4. **Check Window Layout & DPI Awareness:**
-   - Layout panels used for responsiveness (Grid/StackPanel/DockPanel)?
-   - DPI-aware sizing applied (device-independent units, not pixels)?
-   - Window scaling tested at 96, 120, 144, 192 DPI?
-   - Touch targets ≥ 44x44 DIPs (device-independent pixels)?
+6. **Check Performance & Layout:**
+   - MVVM bindings with INotifyPropertyChanged implemented
+   - Virtualization enabled for large lists (SfDataGrid)
+   - Layout panels used (Grid/StackPanel/DockPanel)
+   - DPI-aware sizing (device-independent units)
+   - Touch targets ≥ 44x44 DIPs (device-independent pixels)
 
 **Validation Result:**
 
