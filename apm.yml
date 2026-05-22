@@ -1,0 +1,10 @@
+name: wpf-ui-builder
+version: 1.0.0
+description: Generates production-ready Windows desktop applications powered by Syncfusion WPF components. Orchestrates a structured workflow that covers UI design, component selection, code generation, and validation, with built-in accessibility (WCAG 2.1 AA) and adaptive layout support. Use when building WPF user interfaces, creating desktop UI components, designing interfaces, or generating frontend code.
+author: Syncfusion Inc
+dependencies:
+  apm:
+    - syncfusion/wpf-ui-components-skills
+    - syncfusion/docx-editor-sdk-skills/skills/syncfusion-wpf-docx-editor
+    - syncfusion/pdf-viewer-sdk-skills/skills/syncfusion-wpf-pdf-viewer
+    - syncfusion/spreadsheet-editor-sdk-skills/skills/syncfusion-wpf-spreadsheet-editor
