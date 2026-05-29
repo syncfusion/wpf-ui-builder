@@ -46,7 +46,7 @@ Control ID,Control Name,Syncfusion Control Name,Skill Name,Keywords
 45,TextInputLayout,SfTextInputLayout,syncfusion-wpf-text-input-layout,"text input layout, floating label, hint text, validation, input field wrapper"
 46,TileView,TileView,syncfusion-wpf-tile-view,"tile view, tile layout, grid of tiles, itemscontrol, tile container"
 47,Accordion,SfAccordion,syncfusion-wpf-accordion,"accordion, expandable, collapsible, sections, nested, single expand"
-48,Breadcrumb,SfBreadcrumb,syncfusion-wpf-breadcrumb,"breadcrumb, navigation, hierarchical, path, breadcrumbs, routing, overflow"
+48,Breadcrumb,HierarchyNavigator,syncfusion-wpf-breadcrumb,"breadcrumb, navigation, hierarchical, path, breadcrumbs, routing, overflow"
 49,Menu,SfMenu,syncfusion-wpf-menu,"menu, dropdown menu, context menu, navigation menu, submenu"
 50,NavigationDrawer,NavigationDrawer,syncfusion-wpf-navigation-drawer,"navigation drawer, sidebar, navigation panel, collapsible menu, responsive"
 51,NavigationPane,NavigationPane,syncfusion-wpf-navigation-pane,"navigation pane, sidebar pane, vertical navigation, navigation panel"
