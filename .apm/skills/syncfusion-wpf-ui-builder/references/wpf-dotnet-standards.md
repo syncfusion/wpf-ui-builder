@@ -60,15 +60,15 @@
 
 ```xaml
 <!-- ❌ No accessible name -->
-<sf:SfButton Content="{StaticResource MenuIcon}" />
+<sf:ButtonAdvContent="{StaticResource MenuIcon}" />
 
 <!-- ✅ Using AutomationProperties.Name -->
-<sf:SfButton Content="{StaticResource MenuIcon}" 
+<sf:ButtonAdvContent="{StaticResource MenuIcon}" 
              AutomationProperties.Name="Open menu"
              AutomationProperties.AutomationId="MenuBtn" />
 
 <!-- ✅ Using ToolTip for accessibility -->
-<sf:SfButton Content="{StaticResource MenuIcon}" 
+<sf:ButtonAdvContent="{StaticResource MenuIcon}" 
              ToolTip="Open navigation menu"
              AutomationProperties.Name="Open menu" />
 ```
@@ -78,6 +78,8 @@
 - [ ] Decorative elements marked with `AutomationProperties.IsSkipCharacter="True"`
 - [ ] Icon-only buttons have `AutomationProperties.Name` or `ToolTip`
 - [ ] Complex images have `AutomationProperties.HelpText` with detailed description
+
+> 🔴 **BLOCKING:** IF any informative image or icon-only button is missing `AutomationProperties.Name` → **FAIL** — `"Accessibility violation: missing AutomationProperties.Name on <element>"`
 
 ---
 
@@ -92,8 +94,8 @@
               AutomationProperties.Name="Email"
               AutomationProperties.HelpText="Enter your email address (example: name@domain.com)" />
 
-<!-- ✅ SfButton with ToolTip -->
-<sf:SfButton Content="Submit"
+<!-- ✅ ButtonAdvwith ToolTip -->
+<sf:ButtonAdvContent="Submit"
              ToolTip="Click to submit the form"
              AutomationProperties.Name="Submit form" />
 
@@ -108,6 +110,8 @@
 - [ ] ToolTip text accessible via `AutomationProperties.HelpText`
 - [ ] Help text describes how to use the control
 - [ ] Keyboard navigation instructions provided where needed
+
+> 🔴 **BLOCKING:** IF interactive control is missing both `ToolTip` and `AutomationProperties.HelpText` → **FAIL** — `"Accessibility violation: no help text on <control>"`
 
 ---
 
@@ -159,6 +163,9 @@
 - [ ] High Contrast Theme supported via DynamicResources
 - [ ] Information not conveyed by color alone (use text + icon)
 
+> 🔴 **BLOCKING:** IF any text contrast < 4.5:1 or UI control contrast < 3:1 → **FAIL** — `"WCAG 2.1 AA violation: contrast ratio <ratio> on <element> (minimum: <required>)"`
+> 🔴 **BLOCKING:** IF state change (error, success, warning) communicated by color only → **FAIL** — `"Accessibility violation: color-only state indicator on <element>"`
+
 ---
 
 ### Operable: Users Must Be Able to Operate the Interface
@@ -209,6 +216,9 @@ protected override void OnKeyDown(KeyEventArgs e)
 - [ ] Enter key activates default buttons
 - [ ] Arrow keys work for ListBox, ComboBox, and TabControl navigation
 
+> 🔴 **BLOCKING:** IF any interactive control has `KeyboardNavigation.IsTabStop = False` without justification → **FAIL** — `"Keyboard accessibility violation: <element> is not keyboard reachable"`
+> 🔴 **BLOCKING:** IF keyboard trap detected (Tab key handled and swallowed in code-behind) → **FAIL** — `"Keyboard trap violation on <element>"`
+
 ---
 
 #### 2.4 Focus Management
@@ -220,7 +230,7 @@ protected override void OnKeyDown(KeyEventArgs e)
 <Setter Property="FocusVisualStyle" Value="{x:Null}" />
 
 <!-- ✅ GOOD - Default WPF focus visual is visible -->
-<sf:SfButton Content="Click me" />
+<sf:ButtonAdvContent="Click me" />
 
 <!-- ✅ GOOD - Custom focus style with high contrast -->
 <Style x:Key="MyFocusStyle" TargetType="sf:SfButton">
@@ -266,6 +276,8 @@ public partial class ConfirmDialog : Window
 - [ ] Focus managed when opening Windows/Popups (focus primary element)
 - [ ] Focused element not obscured by other UI elements
 
+> 🔴 **BLOCKING:** IF `FocusVisualStyle="{x:Null}"` found on any control → **FAIL** — `"Accessibility violation: focus indicator removed on <element>"`
+
 ---
 
 #### 2.5 Touch Target Size
@@ -274,15 +286,15 @@ public partial class ConfirmDialog : Window
 
 ```xaml
 <!-- ✓ GOOD - Minimum target size -->
-<sf:SfButton Width="24" Height="24" Content="+" />
+<sf:ButtonAdvWidth="24" Height="24" Content="+" />
 
 <!-- ✓ GOOD - Comfortable target size (recommended 44×44 for touch input) -->
-<sf:SfButton Width="44" Height="44" 
+<sf:ButtonAdvWidth="44" Height="44" 
              AutomationProperties.Name="Submit"
              Content="Submit" />
 
 <!-- ✗ BAD - Too small -->
-<sf:SfButton Width="16" Height="16" Content="X" />
+<sf:ButtonAdvWidth="16" Height="16" Content="X" />
 ```
 
 **Validation Rules:**
@@ -301,11 +313,11 @@ public partial class ConfirmDialog : Window
 
 ```xaml
 <!-- ✓ GOOD - Buttons trigger expected actions -->
-<sf:SfButton Content="Submit" Click="Submit_Click" />
-<sf:SfButton Content="Cancel" Click="Cancel_Click" />
+<sf:ButtonAdvContent="Submit" Click="Submit_Click" />
+<sf:ButtonAdvContent="Cancel" Click="Cancel_Click" />
 
 <!-- ❌ BAD - Unexpected side effects -->
-<sf:SfButton Content="Save" PreviewMouseDown="UnexpectedAction_Handler" />
+<sf:ButtonAdvContent="Save" PreviewMouseDown="UnexpectedAction_Handler" />
 
 <!-- ✓ GOOD - Focus change only highlights -->
 <sf:SfTextBox Text="{Binding Name}" GotFocus="TextBox_GotFocus" />
@@ -402,8 +414,8 @@ public partial class ConfirmDialog : Window
 <!-- ❌ Custom control without proper AutomationPeer -->
 <local:CustomSubmitButton Click="Submit_Click" />
 
-<!-- ✅ Native SfButton (automatic UIA support, keyboard, focus) -->
-<sf:SfButton Content="Submit" Click="Submit_Click"
+<!-- ✅ Native ButtonAdv(automatic UIA support, keyboard, focus) -->
+<sf:ButtonAdvContent="Submit" Click="Submit_Click"
              AutomationProperties.Name="Submit form"
              AutomationProperties.AutomationId="SubmitBtn" />
 
@@ -448,7 +460,7 @@ public partial class ConfirmDialog : Window
 </TabControl>
 
 <!-- ✓ GOOD - AutomationProperties for icon buttons -->
-<sf:SfButton Content="{StaticResource CloseIcon}"
+<sf:ButtonAdvContent="{StaticResource CloseIcon}"
              AutomationProperties.Name="Close dialog"
              Click="Close_Click" />
 
@@ -529,6 +541,9 @@ string query = $"SELECT * FROM Users WHERE Email = '{userEmail}'"; // DANGEROUS!
 - [ ] User input validated before use in file paths
 - [ ] No reflection misuse on untrusted data
 
+> 🔴 **BLOCKING:** IF `XamlReader.Load()` or `XamlReader.Parse()` called with user-supplied input → **FAIL** — `"Security violation: unsanitized XAML execution in <class>"`
+> 🔴 **BLOCKING:** IF unparameterized SQL string interpolation detected → **FAIL** — `"Security violation: SQL injection risk in <method>"`
+
 ---
 
 ### 2.2 Secrets & Configuration
@@ -572,6 +587,8 @@ var credentials = new ManagedIdentityCredential();
 - [ ] Configuration stored in App.config or environment variables
 - [ ] Secrets stored in secure vaults (Keyvault, etc.)
 - [ ] Never commit secrets to source control
+
+> 🔴 **BLOCKING:** IF any string literal matches secret pattern (API key, password, connection string) in `.cs` or `.xaml` file → **FAIL** — `"Security violation: hardcoded secret detected in <file> at line <n>"`
 
 ---
 
@@ -643,6 +660,9 @@ var credentials = new ManagedIdentityCredential();
 - [ ] No memory leaks in Event Handlers (use WeakEventManager or unsubscribe)
 - [ ] Proper use of `Mode=OneWay` for read-only bindings
 - [ ] No blocking operations on UI thread (use async/await)
+
+> 🔴 **BLOCKING:** IF `ItemsSource` bound list > 100 items and `VirtualizingStackPanel.IsVirtualizing` is not `True` → **FAIL** — `"Performance violation: virtualization disabled on large list <element>"`
+> 🔴 **BLOCKING:** IF `Task.Wait()` or `Task.Result` called on UI thread → **FAIL** — `"Performance violation: UI thread blocked in <method>"`
 
 ---
 
@@ -717,6 +737,10 @@ public class UserViewModel : INotifyPropertyChanged
 - [ ] Nullable reference types enabled (#nullable enable)
 - [ ] XAML resources organized in ResourceDictionaries
 
+> 🔴 **BLOCKING:** IF business logic (service calls, data access, computation) found in code-behind → **FAIL** — `"MVVM violation: business logic in code-behind of <file>"`
+> 🔴 **BLOCKING:** IF ViewModel does not implement `INotifyPropertyChanged` → **FAIL** — `"Binding violation: <ViewModel> missing INotifyPropertyChanged"`
+> 🔴 **BLOCKING:** IF `{Binding PropertyName}` references a property not defined in the ViewModel → **FAIL** — `"Binding error: <PropertyName> not found in <ViewModel>"`
+
 ---
 
 ### 4.2 Code Hygiene
@@ -755,95 +779,113 @@ private void SaveButton_Click(object sender, RoutedEventArgs e)
 - [ ] Consistent naming conventions (PascalCase for properties, _camelCase for private fields)
 - [ ] XML documentation on public methods and classes
 
+> 🔴 **BLOCKING:** IF `Debugger.Break()` or `Debug.WriteLine()` found in any non-test file → **FAIL** — `"Code quality violation: debug statement in production code at <file> line <n>"`
+
 ---
 
 ## Validation Checklist
 
-**UI Automation & Accessibility Checklist—run for every WPF control:**
+**Run for every generated WPF screen. Each item is a binary gate — PASS or FAIL. No partial credit. No silent pass.**
+
+> 🔴 **GLOBAL RULE:** Any single FAIL blocks Stage 8 insertion. All items must reach PASS before proceeding.
 
 ```
 ACCESSIBILITY (UI AUTOMATION)
-  ✓ All images/icons have AutomationProperties.Name
-  ✓ Decorative images marked with IsSkipCharacter="True"
-  ✓ Icon buttons have AutomationProperties.Name or ToolTip
-  ✓ All interactive controls have unique AutomationId
-  ✓ Complex controls have AutomationProperties.HelpText
-  ✓ Color contrast ≥ 4.5:1 for text (or 3:1 for large)
-  ✓ Color contrast ≥ 3:1 for UI controls and focus indicators
-  ✓ Information not conveyed by color alone (use icon + text)
-  ✓ High Contrast Theme support via DynamicResources
+  [ ] All images/icons have AutomationProperties.Name
+      ❌ FAIL: "Missing AutomationProperties.Name on <element>"
+  [ ] Decorative images marked with IsSkipCharacter="True"
+      ❌ FAIL: "Decorative image not hidden from automation: <element>"
+  [ ] Icon buttons have AutomationProperties.Name or ToolTip
+      ❌ FAIL: "Icon-only button missing accessible name: <element>"
+  [ ] All interactive controls have unique AutomationId
+      ❌ FAIL: "Duplicate or missing AutomationId on <element>"
+  [ ] Complex controls have AutomationProperties.HelpText
+      ❌ FAIL: "Missing HelpText on complex control: <element>"
+  [ ] Color contrast ≥ 4.5:1 for normal text, ≥ 3:1 for large text
+      ❌ FAIL: "Contrast ratio <ratio> on <element> — minimum <required>"
+  [ ] Information not conveyed by color alone
+      ❌ FAIL: "Color-only state indicator on <element>"
+  [ ] High Contrast Theme supported via DynamicResources
+      ❌ FAIL: "Static resource used where DynamicResource required: <key>"
 
 KEYBOARD NAVIGATION
-  ✓ All functionality accessible via keyboard (no mouse-only)
-  ✓ Tab order logical (TabIndex set correctly, left-to-right, top-to-bottom)
-  ✓ No keyboard traps (can Tab out of every control)
-  ✓ Focus indicators visible (never FocusVisualStyle=null)
-  ✓ Focus outline ≥ 2px thick, ≥ 3:1 contrast
-  ✓ Escape closes dialogs and popups
-  ✓ Enter activates default buttons
-  ✓ Arrow keys work for ListBox, ComboBox, TabControl
+  [ ] All interactive elements are keyboard reachable (IsTabStop = True)
+      ❌ FAIL: "Keyboard inaccessible control: <element>"
+  [ ] Tab order logical (left-to-right, top-to-bottom)
+      ❌ FAIL: "Illogical tab order detected — verify TabIndex values"
+  [ ] No keyboard traps
+      ❌ FAIL: "Keyboard trap on <element> — Tab key swallowed in handler"
+  [ ] Focus indicators always visible (FocusVisualStyle ≠ null)
+      ❌ FAIL: "Focus indicator removed on <element>"
+  [ ] Escape closes dialogs; Enter activates default buttons
+      ❌ FAIL: "Escape/Enter key handling missing on <window/dialog>"
 
 CONTROLS & FORMS
-  ✓ Native WPF controls used (Button, TextBox, CheckBox, etc.)
-  ✓ Custom controls implement OnCreateAutomationPeer()
-  ✓ Every input has associated Label or AutomationProperties.Name
-  ✓ Required fields marked with * or IsRequiredForForm
-  ✓ Error messages displayed via Validation.ErrorTemplate
-  ✓ Error fields marked with aria-invalid or validation indicator
-  ✓ Form validation on PropertyChanged or LostFocus
-  ✓ Touch targets ≥ 24×24 device-independent pixels
-
-PERFORMANCE
-  ✓ Large ItemsControls use VirtualizingStackPanel
-  ✓ Binding performance optimized (Mode=OneWay where possible)
-  ✓ No memory leaks in event handlers (proper unsubscribe)
-  ✓ No blocking operations on UI thread (use async/await)
-  ✓ Heavy computations on background threads (Task/ThreadPool)
-
-MVVM & CODE QUALITY
-  ✓ No business logic in code-behind
-  ✓ MVVM pattern strictly followed
-  ✓ ViewModels implement INotifyPropertyChanged
-  ✓ Commands (ICommand) used instead of Click events
-  ✓ No `dynamic` types or unchecked object casting
-  ✓ No debug code in production (Debug.WriteLine, Debugger.Break)
-  ✓ No console-like output or MessageBox in production
-  ✓ Consistent naming conventions (PascalCase, _camelCase)
-  ✓ XML documentation on public methods and classes
+  [ ] Every input has Label or AutomationProperties.Name
+      ❌ FAIL: "Unlabelled input control: <element>"
+  [ ] Required fields marked with AutomationProperties.IsRequiredForForm
+      ❌ FAIL: "Required field not marked: <element>"
+  [ ] Error messages displayed via Validation.ErrorTemplate
+      ❌ FAIL: "No error feedback on validated field: <element>"
+  [ ] Touch targets ≥ 44×44 device-independent pixels
+      ❌ FAIL: "Touch target too small on <element>: <actual> (min 44×44)"
 
 SECURITY
-  ✓ No XamlReader.Load() on unsanitized user input
-  ✓ No Activator.CreateInstance() on untrusted types
-  ✓ SQL queries use parameterized queries
-  ✓ No hardcoded API keys or connection strings
-  ✓ Secrets stored in App.config or environment variables
-  ✓ All NuGet packages from official NuGet.org
-  ✓ Regular vulnerability scanning (dotnet list package --vulnerable)
+  [ ] No XamlReader.Load/Parse on user input
+      ❌ FAIL: "Unsafe XAML execution in <class>"
+  [ ] No SQL string interpolation
+      ❌ FAIL: "SQL injection risk in <method>"
+  [ ] No hardcoded secrets (API keys, passwords, connection strings)
+      ❌ FAIL: "Hardcoded secret in <file> at line <n>"
+  [ ] All NuGet packages from official NuGet.org
+      ❌ FAIL: "Unverified package source: <package>"
+
+PERFORMANCE
+  [ ] Large lists (> 100 items) use VirtualizingStackPanel
+      ❌ FAIL: "Virtualization disabled on large list: <element>"
+  [ ] No Task.Wait() or Task.Result on UI thread
+      ❌ FAIL: "UI thread blocked in <method>"
+  [ ] Event handlers unsubscribed on Unloaded
+      ❌ FAIL: "Potential memory leak — handler not unsubscribed in <class>"
+
+MVVM & CODE QUALITY
+  [ ] No business logic in code-behind
+      ❌ FAIL: "Business logic in code-behind of <file>"
+  [ ] ViewModels implement INotifyPropertyChanged
+      ❌ FAIL: "<ViewModel> missing INotifyPropertyChanged"
+  [ ] All {Binding} paths resolve to defined ViewModel properties
+      ❌ FAIL: "<PropertyName> not found in <ViewModel>"
+  [ ] No debug statements in production code
+      ❌ FAIL: "Debug statement in <file> at line <n>"
+  [ ] Syncfusion theme applied via SfSkinManager (not MergedDictionaries)
+      ❌ FAIL: "Syncfusion theme loaded via MergedDictionaries in <file>"
 ```
 
 ---
 
 ## Auto-Fix Rules
 
-**Stage 6 automatically fixes these issues:**
+**Stage 7 automatically applies fixes only when the rule is well-defined and the fix is deterministic and safe.**
 
-| Issue | Auto-Fix |
-|-------|----------|
-| Missing AutomationId | Generate unique ID based on control name/type |
-| Missing AutomationProperties.Name | Infer from Label or ToolTip |
-| Virtualization disabled on ListBox | Enable VirtualizingStackPanel |
-| Missing TabIndex | Calculate logical tab order |
-| Color contrast too low | Adjust colors using accessibility formulas |
-| Missing ToolTip on icon button | Add based on button context |
-| Hardcoded margins/padding | Convert to consistent DPI-aware values |
-| No binding Mode specified | Set to OneWay for read-only properties |
-| Focus visual missing | Add standard FocusVisualStyle |
-| High Contrast not supported | Add DynamicResource theme support |
+> 🔴 **BLOCKING:** IF an issue cannot be auto-fixed safely (ambiguous, requires human judgment, or would change behavior) → **FAIL** — do NOT apply a guess-based correction. Report the issue for manual resolution.
+
+| Issue | Auto-Fix | Safe? |
+|-------|----------|-------|
+| Missing `AutomationId` | Generate unique ID from control name + type | ✅ Yes |
+| Missing `AutomationProperties.Name` | Infer from associated `Label.Content` or `ToolTip` | ✅ Yes (if source is unambiguous) |
+| Virtualization disabled on `SfListView` / `SfDataGrid` | Enable `VirtualizingStackPanel.IsVirtualizing="True"` | ✅ Yes |
+| Missing `TabIndex` | Calculate logical order (top-to-bottom, left-to-right by Grid position) | ✅ Yes |
+| Missing `ToolTip` on icon-only button | ✅ Only if `AutomationProperties.Name` exists — copy as ToolTip | ✅ Conditional |
+| Hardcoded `Margin`/`Padding` values | Convert to token resource key if exact match exists in `Themes/Spacing.xaml` | ✅ Conditional |
+| Missing `Mode=OneWay` on read-only binding | Add `Mode=OneWay` where property has no setter | ✅ Yes |
+| Missing `FocusVisualStyle` | Add standard 2px dashed rectangle focus style | ✅ Yes |
+| Color contrast too low | ❌ **Cannot auto-fix** — color choice is a design decision | ❌ FAIL — report to user |
+| Hardcoded secrets | ❌ **Cannot auto-fix** — replacement value unknown | ❌ FAIL — report to user |
+| Business logic in code-behind | ❌ **Cannot auto-fix** — requires architectural refactor | ❌ FAIL — report to user |
+| Missing `INotifyPropertyChanged` | ❌ **Cannot auto-fix** — property raise logic must be authored | ❌ FAIL — report to user |
 
 ---
 
 **End of Desktop Standards Reference**  
 Updated for **WPF UI Automation** and **MVVM Compliance**  
 Aligned with Windows Accessibility Standards and Syncfusion WPF Guidelines  
-For Build issues, see `build.md`
-
