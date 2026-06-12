@@ -1,161 +1,271 @@
 # Stage 6: Dependencies
 
-**Purpose:** Detect required NuGet packages, resolve version conflicts, prepare NuGet restore command.
+**Purpose:** Detect required NuGet packages from skill files, resolve versions, deduplicate, and prepare installation commands.
 
 ---
 
-## ⚠️ CRITICAL: Verify NuGet Packages from Skill Files BEFORE Installing
+## ⛔ MANDATORY RULE: No Assumptions — Skill Files ONLY
 
-**The `skill_hint` values from Stage 3 (e.g., `syncfusion-wpf-datagrid`, `syncfusion-wpf-button`) are REFERENCE LABELS ONLY - NOT NuGet package names.**
+**Before adding ANY NuGet package:**
+1. ✅ Read `skill-extraction.json` (produced by Stage — Control Skill Extraction) to access pre-extracted package data
+2. ✅ Verify all controls in `skill-extraction.json` have `validation_status: "PASS"` 
+3. ✅ Extract **exact** package name from `nuget_package` field (already verified in Stage — Control Skill Extraction)
+4. ✅ Use **version from Stage 2 detection** (matching Syncfusion version in project)
+5. ✅ Never assume, infer, or guess package names or versions
 
-**Before installing ANY NuGet package:**
+**Why this matters:**
+- ❌ `syncfusion-wpf-textinputlayout` ≠ `Syncfusion.SfTextInputLayout.WPF` (actual: `Syncfusion.SfInput.WPF`)
+- ❌ Guessing versions causes assembly mismatches and runtime failures
+- ✅ Only `skill-extraction.json` (pre-validated) is authoritative for package resolution
 
-1. **Look up the official NuGet package name** from the control skill file:
-   - Path format: `.apm/WPF/skills/<skill-name>/SKILL.md`
-   - Example: For `syncfusion-wpf-datagrid` → Read `.apm/WPF/skills/syncfusion-wpf-datagrid/SKILL.md`
-   - The skill file contains the **official NuGet package name** (e.g., `Syncfusion.SfDataGrid.WPF`)
+**Rejection criteria:** 
+- ❌ Any control missing from `skill-extraction.json`
+- ❌ Any entry with `validation_status != "PASS"`
+- ❌ Any package NOT explicitly in `nuget_package` field
+- ❌ Any version mismatch from Stage 2 detection
 
-2. **Check the Getting Started section** in each skill file for:
-   - Required NuGet package names
-   - Version requirements
-   - Dependencies between packages
-
-3. **Skill File Discovery Paths** (check in order):
-   - `.apm/WPF/skills/<skill-name>/SKILL.md`
-   - `.codestudio/skills/<skill-name>/SKILL.md`
-   - `.agent/skills/<skill-name>/SKILL.md`
-   - `.agents/skills/<skill-name>/SKILL.md`
-   - `.github/skills/<skill-name>/SKILL.md`
-   - `skills/<skill-name>/SKILL.md`
+**Consequence:** Do not proceed with installation if package source cannot be verified in `skill-extraction.json`.
 
 ---
 
-## AI Should:
+## ⛔ ERROR HANDLING: Missing Syncfusion Control ('does not exist in namespace...')
 
-1. **Detect Required Packages:**
-   - Scan generated XAML and C# code
-   - List all `skill_hint` values from Stage 3 (e.g., `syncfusion-wpf-datagrid`, `syncfusion-wpf-chart`)
-   - **Look up official NuGet package name** from corresponding skill file
+**Common error in Stage 5-6:**
+- ❌ `'SfTextInputLayout' does not exist in namespace 'http://schemas.syncfusion.com/wpf'`
+- ❌ `XAML Compilation Error: Type X not found`
 
-2. **Check Project's .csproj file:**
-   - What NuGet packages already installed?
-   - What versions are currently in use?
-   - Any version conflicts?
+**Root cause:** NuGet package not installed OR package name guessed/assumed
 
-3. **Resolve Conflicts:**
-   - If Syncfusion WPF package already installed:
-     - Is version compatible with .NET target framework?
-     - Suggest upgrade if needed
-   - If framework dependencies conflict:
-     - Recommend resolution (.NET Framework 4.6.2+ vs .NET Core 8+, upgrade Syncfusion.Licensing match)
+**Mandatory fix:**
+1. ✅ Read `control-mapping.json` to identify which controls are mapped
+2. ✅ For each control, read the corresponding skill file (`getting-started.md`)
+3. ✅ Extract EXACT NuGet package name (e.g., `Syncfusion.SfInput.WPF` for `SfTextInputLayout`)
+4. ✅ Install package using latest stable version from NuGet registry
+5. ⛔ If package name is unclear or missing from skill file → HALT. Do NOT attempt to install guessed names
+6. ⛔ DO NOT fallback to Microsoft native controls (e.g., `TextBox`, `ComboBox`) — Syncfusion skill file is authoritative
 
-4. **Prepare Installation Command:**
-   - Generate NuGet restore command via dotnet CLI or Package Manager Console
-   - List packages to add (using **official NuGet names from skill files**)
-   - List packages to upgrade (if needed)
+**Verification:** After installation, run `dotnet build` to confirm namespace resolution before proceeding to Stage 7.
 
-**Example Output:**
+---
+
+## 🔴 Stage 6 Entry Gate: Reject Non-Verified Controls
+
+**BLOCKING check before any dependency resolution:**
+
+```
+IF skill-extraction.json missing:
+  → ❌ HALT: "Stage — Control Skill Extraction not completed. Cannot identify NuGet packages."
+
+FOR EACH control in skill-extraction.json:
+  IF validation_status != "PASS":
+    → ❌ HALT: "Control validation failed. Check Stage — Control Skill Extraction output."
+  
+  IF nuget_package == null OR nuget_package == "":
+    → ❌ HALT: "NuGet package undefined for control. Skill file missing?"
+
+ALL checks pass → ✅ Gate cleared. Proceed to Step 1.
+ANY check fails → ❌ HALT. Do NOT proceed to dependency installation.
+```
+
+---
+
+## 6-Step Dependency Workflow
+
+### Step 1: Read `skill-extraction.json` & Identify Packages
+- Load: `<project-root>/skill-extraction.json` (pre-validated from Stage — Control Skill Extraction)
+- For each control entry:
+  - Use `nuget_package` field directly (already extracted + verified in Stage — Control Skill Extraction)
+  - Use `nuget_version` field to match project's Syncfusion version
+- **Output:** Control → Official Package mapping (pre-verified, no re-extraction needed)
+
+### Step 2: Scan Project .csproj
+- Check existing Syncfusion packages and versions
+- Identify framework target (net10.0, net462, etc.)
+- List already-installed dependencies
+- **Output:** Current project state
+
+### Step 3: Resolve Versions
+
+**Version detection priority (apply in order — stop at first success):**
+
+```
+1. Read Stage 2 output → syncfusion_version field
+   IF version found AND non-empty → use it for ALL Syncfusion packages
+
+2. Scan <ProjectName>.csproj for any existing Syncfusion package version
+   IF found (e.g., <PackageReference Include="Syncfusion.Shared.WPF" Version="*" />)
+   → extract that version → apply to ALL new Syncfusion packages
+
+3. Query NuGet registry:
+   dotnet package search Syncfusion.Shared.WPF --exact
+   IF latest stable version returned → use it
+
+4. IF version CANNOT be determined by any method above:
+   ❌ Do NOT guess a version number
+   ✅ Use version="*" — this resolves to the highest available stable version at install time
+
+   Install command with wildcard:
+   $ dotnet add package Syncfusion.SfDataGrid.WPF
+
+   (omitting --version lets NuGet resolve the latest stable automatically)
+```
+
+**Wildcard (`*`) rule:**
+
+| Scenario | Version Strategy |
+|---|---|
+| Stage 2 version locked | Use exact version (e.g., `--version 33.2.10`) for ALL packages |
+| Existing Syncfusion package found in `.csproj` | Extract and reuse that version for ALL packages |
+| NuGet registry query succeeds | Use returned latest stable version |
+| Version unknown — cannot determine | Omit `--version` flag (NuGet defaults to latest stable) |
+
+> ⚠️ **Uniformity rule:** Once a version is resolved by any method, ALL Syncfusion packages in the project MUST use that same version. Mixing versions across packages causes assembly mismatch errors at runtime.
+> ⚠️ **No guessing:** Never hardcode a version number that was not retrieved from Stage 2, the `.csproj`, or the NuGet registry. An unknown version is not a reason to invent one — it is a reason to use the wildcard strategy above.
+
+- **Output:** Resolved version string (e.g., `33.2.10`) OR wildcard strategy confirmed with reason logged
+
+### Step 3A: 🔴 DETECT THEME PACKAGE (BLOCKING — CRITICAL)
+
+**If SfSkinManager.Theme is used in any XAML file → theme package MUST be installed. Non-negotiable.**
+
+```
+SEARCH all generated XAML files for:
+  • syncfusion:SfSkinManager.Theme="{...}"
+  • SfSkinManager.SetTheme(...)
+  
+IF found:
+  1. Extract locked theme name from Stage 4 output
+     (e.g., ThemeName="MaterialDark", "Windows11Light", "Office2019Blue")
+  2. Construct package name: Syncfusion.Themes.<ThemeName>.WPF
+  3. Add to core dependencies list with REQUIRED flag
+  
+  IF theme name unknown or missing from Stage 4:
+  → ❌ HALT: "Theme selected but name not recorded in Stage 4. 
+               Cannot determine package name."
+               
+  IF package name cannot be constructed:
+  → ❌ HALT: "Invalid theme name '<value>' — cannot map to NuGet package"
+  
+  ✅ Package identified → proceed to version resolution
+     (use same version as all other Syncfusion packages)
+
+THEME PACKAGE VALIDATION:
+  • Package name format: Syncfusion.Themes.<ThemeName>.WPF (exact case-sensitive match)
+  • Must match Syncfusion version
+  • Common themes: Windows11Light, Windows11Dark, MaterialLight, MaterialDark, Office2019Blue, Fluent, Bootstrap5
+```
+
+**Common theme package mappings:**
+| Theme Name (Stage 4) | NuGet Package |
+|---|---|
+| Windows11Light | Syncfusion.Themes.Windows11Light.WPF |
+| Windows11Dark | Syncfusion.Themes.Windows11Dark.WPF |
+| MaterialLight | Syncfusion.Themes.MaterialLight.WPF |
+| MaterialDark | Syncfusion.Themes.MaterialDark.WPF |
+| Fluent | Syncfusion.Themes.Fluent.WPF |
+
+**Output:** Theme package name confirmed OR ⛔ HALT with reason
+
+---
+
+### Step 4: Add Required Core Packages (Always)
+- `Syncfusion.Shared.WPF` — foundational package
+- `Syncfusion.Licensing` — license registration
+- `Syncfusion.SfSkinManager.WPF` — theme support
+- Theme package (detected in Step 3A if SfSkinManager.Theme used, e.g., `Syncfusion.Themes.MaterialDark.WPF`)
+- **Output:** Core dependencies confirmed
+
+### Step 5: Deduplicate & Consolidate
+- Remove duplicate package entries across controls
+- Consolidate shared dependencies (e.g., `Syncfusion.Shared.WPF` used by multiple controls)
+- List final unique packages with version
+- **Output:** Final package list (no duplicates)
+
+### Step 6: Prepare Installation Command
+- Generate NuGet restore/install commands for new packages
+- Include version for each package (matching Stage 2 version)
+- Exclude already-installed packages
+- **Output:** Ready-to-execute install command
+
+---
+
+## Validation Rules (MANDATORY)
+
+| Check | Valid? | Action |
+|-------|--------|--------|
+| All package names verified in skill files? | ✅ Yes / ❌ No | Halt if not verified; re-read skill files |
+| Version resolved (exact or wildcard)? | ✅ Yes / ❌ No | Use wildcard if version unknown — never guess a number |
+| All Syncfusion packages same version? | ✅ Yes / ❌ No | Enforce uniform version; wildcard counts as uniform if no version known |
+| Core packages included (Core, Licensing, SfSkinManager, Theme)? | ✅ Yes / ❌ No | Add missing core packages |
+| **SfSkinManager.Theme detected AND theme package included?** | ✅ Yes / ❌ No | **⛔ HALT if theme used but package missing** |
+| No duplicate packages in final list? | ✅ Yes / ❌ No | Remove duplicates |
+| Package versions compatible with framework? | ✅ Yes / ❌ No | Suggest upgrade or compatible version |
+
+---
+
+## Output Format
 
 ```
 ✓ Dependency Analysis
 
-Control to NuGet Package Mapping (verified in skill files):
-┌─────────────────────────────┬────────────────────────────┬──────────────────────┐
-│ Skill Reference            │ Official NuGet Package      │ Source               │
-├─────────────────────────────┼────────────────────────────┼──────────────────────┤
-│ syncfusion-wpf-maskedtextbox│ Syncfusion.SfInput.WPF     │ skill file verified  │
-│ syncfusion-wpf-button      │ Syncfusion.Shared.WPF       │ skill file verified  │
-│ syncfusion-wpf-datagrid    │ Syncfusion.SfDataGrid.WPF  │ skill file verified  │
-└─────────────────────────────┴────────────────────────────┴──────────────────────┘
+Skill File → NuGet Package Mapping:
+  • syncfusion-wpf-datagrid → Syncfusion.SfDataGrid.WPF (verified)
+  • syncfusion-wpf-textinput → Syncfusion.SfInput.WPF (verified)
+  • syncfusion-wpf-button → Syncfusion.Shared.WPF (verified)
 
-New Packages to Install:
-  - Syncfusion.SfInput.WPF (Latest)
-  - Syncfusion.Shared.WPF (Latest)
-  - Syncfusion.SfDataGrid.WPF (Latest)
+Core Dependencies (Required):
+  • Syncfusion.Shared.WPF
+  • Syncfusion.Licensing
+  • Syncfusion.SfSkinManager.WPF
+  • Syncfusion.Themes.Windows11Light.WPF
 
-Existing Packages:
-  ✓ Syncfusion.Licensing (Latest) (compatible)
-  ✓ CommunityToolkit.Mvvm (Latest) (compatible)
+Control Dependencies (From Skill Files):
+  • Syncfusion.SfDataGrid.WPF(new)
+  • Syncfusion.SfInput.WPF(new)
+
+Already Installed:
+  • Syncfusion.Shared.WPF ✓
 
 Conflicts: None
 
-Install Command (NuGet Package Manager Console):
-PM> Install-Package Syncfusion.SfInput.WPF
-PM> Install-Package Syncfusion.Shared.WPF
-PM> Install-Package Syncfusion.SfDataGrid.WPF
-
-Alternatively with dotnet CLI:
-$ dotnet add package Syncfusion.SfInput.WPF
-$ dotnet add package Syncfusion.Shared.WPF
-$ dotnet add package Syncfusion.SfDataGrid.WPF
-
-Or restore entire project:
-$ dotnet restore
+Install Command (dotnet CLI — version unknown, wildcard strategy):
+  $ dotnet add package Syncfusion.Shared.WPF
+  $ dotnet add package Syncfusion.Licensing
+  $ dotnet add package Syncfusion.SfSkinManager.WPF
+  $ dotnet add package Syncfusion.Themes.Windows11Light.WPF
+  $ dotnet add package Syncfusion.SfDataGrid.WPF
+  $ dotnet add package Syncfusion.SfInput.WPF
+  ⚠️ Run `dotnet restore` then verify all resolved versions match in .csproj before proceeding
 ```
 
-**IMPORTANT:** Always verify NuGet package names in skill files before installing. Example:
-- `syncfusion-wpf-textinputlayout` → NuGet: `Syncfusion.SfInput.WPF` (NOT `Syncfusion.SfTextInputLayout.WPF`)
+---
 
-**⚠️ CRITICAL RUNTIME ISSUE PREVENTION - NuGet Dependencies:**
+## Critical Rules
 
-1. **SfSkinManager Assembly Requirement (Runtime Fix):**
-   - If using Syncfusion themes in Stage 5, MUST add: `Syncfusion.SfSkinManager.WPF`
-   - Without this, `SfSkinManager.SetTheme()` call will result in "Type not found" runtime error
-   - Add to dependency list BEFORE user installs
+⚠️ **ALWAYS:**
+1. Read skill files BEFORE assuming package names
+2. If version cannot be detected from Stage 2, `.csproj`, or NuGet registry → omit `--version` flag (wildcard); never invent a version number
+3. Enforce uniform Syncfusion version across all packages
+4. Include ALL core packages (Core, Licensing, SfSkinManager, Theme) regardless of controls
+5. Validate package names exactly match skill file documentation
 
-2. **Licensing Assembly Requirement (Runtime Fix):**
-   - If using any Syncfusion control, MUST add: `Syncfusion.Licensing`
-   - Without this, license registration code will not compile
-   - Add to dependency list BEFORE user installs
+⚠️ **RUNTIME ISSUE PREVENTION:**
+- **Missing Syncfusion.Shared.WPF** → "Type initializer threw exception"
+- **Missing Syncfusion.Licensing** → License registration fails, watermark appears
+- **Missing Syncfusion.SfSkinManager.WPF** → Theme initialization fails, "Type not found"
+- **Missing theme package** → Controls render with generic styling, assembly load error
+- **Version mismatch across Syncfusion packages** → "Type X in assembly Y does not match type in assembly Z"
 
-3. **Theme Package Requirement (Runtime Fix):**
-   - After selecting theme in Stage 4 (e.g., "Windows11Light"), MUST install corresponding theme package
-   - Example mapping from Stage 4 decision:
-     - Theme "Windows11Light" → Package: `Syncfusion.Themes.Windows11Light.WPF`
-     - Theme "FluentDark" → Package: `Syncfusion.Themes.FluentDark.WPF`
-     - Theme "Material3Light" → Package: `Syncfusion.Themes.Material3Light.WPF`
-   - Without theme package, controls render with default styling and SfSkinManager.SetTheme() throws assembly load error
-   - Add to dependency list matching Stage 4 theme selection
+---
 
-4. **Syncfusion.Core.WPF Base Package (Runtime Fix):**
-   - This is the foundational package for all Syncfusion WPF controls
-   - Always include in initial install to prevent "Type initializer threw exception" errors
-   - Ensures all shared assemblies are available
-
-5. **Version Compatibility (Runtime Fix):**
-   - All Syncfusion WPF packages MUST use SAME version to prevent assembly mismatch errors
-   - Example: If installing `Syncfusion.SfDataGrid.WPF@33.2.6`, then:
-     - `Syncfusion.SfInput.WPF@33.2.6` (SAME version)
-     - `Syncfusion.Themes.Windows11Light.WPF@33.2.6` (SAME version)
-     - `Syncfusion.Licensing@33.2.6` (SAME version)
-   - Mixed versions cause: "Type X in assembly Y does not match type in assembly Z" runtime error
-   - AI must enforce: Extract base version from first Syncfusion package, apply to ALL others
-
-**Updated NuGet Installation Command:**
+## User Interaction
 
 ```
-Install Command (With Runtime Issue Fixes):
-PM> Install-Package Syncfusion.Core.WPF -Version 33.2.6
-PM> Install-Package Syncfusion.Licensing -Version 33.2.6
-PM> Install-Package Syncfusion.SfSkinManager.WPF -Version 33.2.6
-PM> Install-Package Syncfusion.Themes.Windows11Light.WPF -Version 33.2.6
-PM> Install-Package Syncfusion.SfInput.WPF -Version 33.2.6
-PM> Install-Package Syncfusion.SfDataGrid.WPF -Version 33.2.6
+✓ All dependencies detected and validated
+✓ No conflicts found
+✓ Installation command ready
 
-Alternatively with dotnet CLI:
-$ dotnet add package Syncfusion.Core.WPF --version 33.2.6
-$ dotnet add package Syncfusion.Licensing --version 33.2.6
-$ dotnet add package Syncfusion.SfSkinManager.WPF --version 33.2.6
-$ dotnet add package Syncfusion.Themes.Windows11Light.WPF --version 33.2.6
-$ dotnet add package Syncfusion.SfInput.WPF --version 33.2.6
-$ dotnet add package Syncfusion.SfDataGrid.WPF --version 33.2.6
+[✓ Install Now] [📋 Show Command] [⏭️ Skip for Later]
 ```
 
-**User Interaction:**
-User confirms NuGet restore or does it manually:
-```
-Ready to restore NuGet packages?
-[Restore] [Show Command] [Skip]
-```
-
-**Status:** AI detects and prepares with runtime issue fixes. User decides whether to restore now or later (typically done automatically on project load in Visual Studio).
+**Status:** Ready for Stage 7. User can install immediately or manually after code insertion in Stage 9.

@@ -1,176 +1,148 @@
-# Stage 3: Layout Analysis & Control Mapping
+    # Stage 3: Layout Analysis & Control Mapping
 
 **Purpose:** Analyze user requirements, create optimal control-mapping.json, execute mapping script, and produce Syncfusion WPF control assignments. **FULLY AUTOMATED WITH MANDATORY SCRIPT EXECUTION.**
 
 ---
 
-## ⚠️ CRITICAL: Control Skill Names vs. Official NuGet Packages
+## ⚠️ Critical: Skill Labels vs. NuGet Package Names
 
-**Reference labels** in controls.csv (e.g., `syncfusion-wpf-button`, `syncfusion-wpf-datagrid`) are for BM25 semantic search ONLY - NOT official NuGet package names.
+Reference labels in `controls.csv` (e.g., `syncfusion-wpf-datagrid`) are for BM25 search **only** — not official NuGet names.
 
-**Conversion Process (Stage 5):**
-- Stage 3 generates mappings using reference labels
-- Stage 5 converts reference labels → Official NuGet packages from control skill files (`.apm/skills/syncfusion-wpf-<name>/SKILL.md`)
-
-**Examples:**
-- `SfDataGrid` (control) + `syncfusion-wpf-datagrid` (skill label) → `Syncfusion.SfDataGrid.WPF` (official NuGet)
-- `SfChart` (control) + `syncfusion-wpf-chart` (skill label) → `Syncfusion.SfChart.WPF` (official NuGet)
-- `SfTextInputLayout` (control) + `syncfusion-wpf-textinputlayout` (skill label) → `Syncfusion.SfInput.WPF` (official NuGet)
-
-**MANDATORY:** Verify each NuGet package in control skill files or official Syncfusion docs before use.
-
----
-
-## Stage 3 Workflow
-
-### AI Actions
-
-1. **Read Control Type** from Stage 1 intent analysis
-2. **Analyze user query** for specific requirements
-3. **Determine optimal layout variant** (no user choice needed)
-4. **Create structured `control-mapping.json`** with elements (save to project root - MANDATORY)
-5. **Execute controls_search.cjs script** to map elements to Syncfusion WPF controls (REQUIRED)
-6. **Output results** in chat for Stage 4 theming + Stage 5 code generation
-
-### Decision Framework
-
-AI selects the **best** layout based on context and best practices (not multiple options):
-
-| Control Type | Decision Criteria | Best Variant |
+| Control Class | Skill Label | Official NuGet |
 |---|---|---|
-| **Login Window** | Enterprise? 2FA needed? Social auth? | Minimal/Standard/Advanced |
-| **Data Grid** | Read-only or editable? Sorting/filtering? | Simple/Interactive/Full-featured |
-| **Dashboard** | Internal or customer-facing? Complexity? | Focused/Standard/Enterprise |
-| **Navigation** | Multi-level menu? Docking support? | Simple/Sidebar/Progressive |
-| **Form** | Single-step or multi-step? Validation level? | Basic/Standard/Advanced |
+| `SfDataGrid` | `syncfusion-wpf-datagrid` | `Syncfusion.SfDataGrid.WPF` |
+| `SfTextInputLayout` | `syncfusion-wpf-textinputlayout` | `Syncfusion.SfInput.WPF` |
+| `SfChart` | `syncfusion-wpf-chart` | `Syncfusion.SfChart.WPF` |
+| `ButtonAdv` | `syncfusion-wpf-button` | `Syncfusion.Shared.WPF` |
+
+Stage 3 generates skill labels. Stage 6 resolves them to official NuGet packages via control skill files (`.apm/skills/syncfusion-wpf-<name>/SKILL.md`).
 
 ---
 
-## Output: Structured control-mapping.json
+## Workflow (Execute in Order)
 
-**Location:** `<project-root>/control-mapping.json` (NOT in scripts folder)
+### Step 1: Analyze User Requirements
 
-**Simple Layout Example:**
+- Identify & Validate All Views from Intent (MANDATORY)
+- Read control type, views, and interactions from Stage 1 intent output
+- List all distinct views/windows/pages (e.g., `LoginWindow`, `DashboardUserControl`)
+- Document view hierarchy and navigation flow
+- Identify all UI elements per view with their purpose
+
+---
+
+### Step 2: Pre-Mapping Completeness Checklist (MANDATORY)
+
+Verify before creating `control-mapping.json`:
+
+| Check | Rule |
+|---|---|
+| All views listed | Every view from Stage 1 intent must be named |
+| No missing screens | Zero gaps between intent and mapping |
+| Unique element IDs | No duplicate `id` values across all views |
+| Type hints present | Every element has a descriptive `type_hint` |
+| Naming consistent | Same suffix used throughout: `View`, `Window`, or `Control` |
+| View definitions complete | Every view has `page_id`, `component_type`, `title`, and `elements`/`sections` |
+
+⛔ **Do not proceed to Step 3 if any check fails.**
+
+---
+
+### Step 3: Classify Project Type & Create Mapping (MANDATORY)
+
+1. **Determine Structure Type:**
+   - Count distinct UI components from Stage 1
+   - 1 component → `Simple` (use `elements[]` array)
+   - 2+ components → `Complex` (use `pages[]` array with sections)
+
+2. **Create `control-mapping.json` at project root (NOT in scripts folder)**
+   - Add all UI elements with `type_hint` descriptions for BM25 matching
+   - Preserve structure: `project_type`, `control_type`, `variant`
+
+3. **Mandatory Fields per Element:**
+   - `id` — unique identifier (lowercase, no spaces)
+   - `name` — human-readable name
+   - `description` — functional purpose
+   - `type_hint` — space-separated keywords (e.g., "button primary action submit cta")
+   - `control` — will be populated by script (leave empty initially)
+   - `skill` — will be populated by script (leave empty initially)
+
+---
+
+### Step 4: Execute Control Mapping Script (MANDATORY)
+
+#### Simple Layout Schema
 ```json
 {
+  "project_type": "Simple",
   "control_type": "Login Window",
   "variant": "Standard",
   "elements": [
     {
       "id": "email_input",
       "name": "Email Address",
-      "description": "Email TextBox with validation",
+      "description": "Email field with format validation",
       "type_hint": "textbox email form validation"
     },
     {
       "id": "password_input",
       "name": "Password",
-      "description": "PasswordBox field, masked",
+      "description": "Masked password field",
       "type_hint": "passwordbox password form masked"
     },
     {
       "id": "remember_me",
       "name": "Remember Me",
-      "description": "Keep me logged in",
+      "description": "Keep user signed in",
       "type_hint": "checkbox form input"
     },
     {
       "id": "submit_button",
-      "name": "Submit",
-      "description": "Login button",
+      "name": "Login",
+      "description": "Submit credentials",
       "type_hint": "button primary action submit cta"
     }
   ]
 }
 ```
 
-**JSON Structure:**
-- `control_type`: WPF control being built (e.g., "Login Window", "Data Grid", "Dashboard")
-- `variant`: Chosen variant based on requirements (e.g., "Standard", "Advanced", "Minimal")
-- `sections` (optional): For complex layouts, group elements into logical sections
-  - `section_id`: Unique identifier (e.g., "header_section")
-  - `section_name`: Display name (e.g., "Header")
-  - `responsive`: Layout behavior (fixed/collapsible/flexible)
-  - `elements`: Array of elements within section
-- `elements`: Array of control elements
-  - `id`: Unique identifier (snake_case)
-  - `name`: Display name for UI
-  - `description`: What this element does
-  - `type_hint`: UI element type for BM25 search (e.g., "text input", "button", "dropdown", "table", "chart")
-
-**MANDATORY ACTIONS:**
-- ✅ Save JSON as `control-mapping.json` in project root
-- ✅ `type_hint` is CRITICAL for BM25 search accuracy
-- ✅ Run controls_search.cjs script after creating JSON
-- ✅ Keep descriptions concise
-- ✅ Use lowercase for `id` and `type_hint`
-
----
-
-## Complex Layouts (Multi-Section Example)
-
+#### Complex Layout Schema
 ```json
 {
-  "control_type": "Admin Dashboard",
-  "variant": "Classic Admin Dashboard",
-  "layout_grid": "2-column",
-  "sections": [
+  "project_type": "Complex",
+  "layout_variant": "Multi-Window Application",
+  "pages": [
     {
-      "section_id": "titlebar",
-      "section_name": "Title Bar",
-      "description": "Fixed window title bar",
-      "responsive": "fixed",
+      "page_id": "login_window",
+      "component_type": "generate_window",
+      "title": "Login Window",
       "elements": [
-        {
-          "id": "logo",
-          "name": "Company Logo",
-          "description": "Brand logo in title bar",
-          "type_hint": "image logo titlebar header branding"
-        },
-        {
-          "id": "notification_bell",
-          "name": "Notifications",
-          "description": "Bell icon with count",
-          "type_hint": "button icon notification titlebar menu"
-        },
-        {
-          "id": "user_menu",
-          "name": "User Profile",
-          "description": "User avatar dropdown",
-          "type_hint": "combobox button menu user profile titlebar"
-        }
+        { "id": "username_input", "name": "Username", "type_hint": "textbox account login" },
+        { "id": "password_input", "name": "Password", "type_hint": "passwordbox password masked" },
+        { "id": "login_button",   "name": "Login",    "type_hint": "button primary action submit" }
       ]
     },
     {
-      "section_id": "sidebar",
-      "section_name": "Sidebar",
-      "description": "Left navigation panel",
-      "responsive": "collapsible",
-      "elements": [
+      "page_id": "admin_dashboard",
+      "component_type": "generate_usercontrol",
+      "title": "Admin Dashboard",
+      "sections": [
         {
-          "id": "nav_menu",
-          "name": "Navigation Menu",
-          "description": "Main navigation TreeView",
-          "type_hint": "treeview navigation collapsible"
-        }
-      ]
-    },
-    {
-      "section_id": "main_content",
-      "section_name": "Main Content",
-      "responsive": "flexible",
-      "elements": [
-        {
-          "id": "kpi_cards",
-          "name": "KPI Cards",
-          "description": "Metric cards displaying statistics",
-          "type_hint": "stackpanel grid statistics dashboard metrics kpi"
+          "section_id": "header",
+          "section_name": "Header",
+          "responsive": "fixed",
+          "elements": [
+            { "id": "logo",      "name": "Logo",         "type_hint": "image logo titlebar header branding" },
+            { "id": "user_menu", "name": "User Profile",  "type_hint": "combobox menu user profile titlebar" }
+          ]
         },
         {
-          "id": "data_grid",
-          "name": "Users Grid",
-          "description": "SfDataGrid with sorting and filtering",
-          "type_hint": "sfdatagrid grid table sortable filterable paging"
+          "section_id": "content",
+          "section_name": "Content",
+          "responsive": "flexible",
+          "elements": [
+            { "id": "data_grid", "name": "Users Grid", "type_hint": "sfdatagrid table sortable filterable" }
+          ]
         }
       ]
     }
@@ -178,232 +150,145 @@ AI selects the **best** layout based on context and best practices (not multiple
 }
 ```
 
----
+#### `type_hint` Best Practices
 
-## Type Hint Best Practices
-
-**For Title Bar / Menu Elements:**
-- Always include `titlebar` or `menu` keyword in type_hint
-- Examples:
-  - Logo: `"image logo titlebar header branding"`
-  - Notifications: `"button icon notification titlebar menu"`
-  - User Menu: `"combobox button menu user profile titlebar"`
-
-**General Guidelines:**
-- Use **compound keywords**: `"button icon notification"` scores better than `"notification"`
-- Include **context keywords**: titlebar/menu/sidebar improves matching
-- Add **modifiers**: sortable, filterable, collapsible, paginated
-- Use **exact WPF control keywords** from controls.csv for best BM25 matching
-
-**BM25 Scoring Guide:**
-- **40+** = Excellent match (multiple keywords + context)
-- **20-40** = Good match (several keywords)
-- **<20** = Weak match (fallback to native WPF control)
-- **0** = No match (unrelated keywords)
+- Use compound keywords: `"button icon notification"` scores better than `"notification"`
+- Add context keywords: `titlebar`, `menu`, `sidebar`, `form`
+- Add modifiers: `sortable`, `filterable`, `collapsible`, `paginated`
+- Use lowercase for both `id` and `type_hint`
 
 ---
 
-## Script Execution (MANDATORY)
+### Step 5: Control Substitution Strategy
 
-### Prerequisites
+Apply **only** when an exact Syncfusion match is unavailable.
+
+| BM25 Score | Action |
+|---|---|
+| **> 20** | Accept — high confidence Syncfusion match |
+| **10–20** | Verify control exists in official Syncfusion docs; use if confirmed |
+| **< 10** | Use `NATIVE_XAML` fallback — do NOT accept a weak Syncfusion substitution |
+| **0** | Use `NATIVE_XAML` with documented reason |
+
+**Rules:**
+- ✅ Map to the exact Syncfusion control class name
+- ✅ Use `NATIVE_XAML` when no valid Syncfusion control exists (with `fallback_reason` + `equivalent_native`)
+- ❌ Never substitute with a different Syncfusion control (e.g., do not use `SfToggleButton` in place of a missing checkbox)
+- ❌ Never use native WPF controls when a valid Syncfusion control exists
+
+**NATIVE_XAML fallback format:**
+```json
+{
+  "element_id": "checkbox_example",
+  "control": "NATIVE_XAML",
+  "skill": "native-wpf-checkbox",
+  "fallback_reason": "No Syncfusion checkbox control available",
+  "equivalent_native": "System.Windows.Controls.CheckBox"
+}
+```
+
+---
+
+### Step 5: Execute Mapping Script (MANDATORY)
+
+**Prerequisites:**
 - Node.js 14+ installed
-- `control-mapping.json` created in project root
-- Script located at: `<project-root>/.apm/skills/syncfusion-wpf-ui-builder/scripts/controls_search.cjs`
+- `control-mapping.json` saved to project root
+- `controls.csv` in scripts folder (contains control → skill mappings)
+- Script: `<project-root>/.apm/skills/syncfusion-wpf-ui-builder/scripts/controls_search.cjs`
 
-### Execution Command (Windows - Absolute Path REQUIRED)
-
+**Execution:**
 ```powershell
-cd <project-root>\<skills-dir>\syncfusion-wpf-ui-builder\scripts
+cd <project-root>\.apm\skills\syncfusion-wpf-ui-builder\scripts
 node controls_search.cjs <project-root>\control-mapping.json
 ```
 
-**Replace placeholders:**
-- `<project-root>` = WPF project directory (e.g., `d:\MyWpfApp`)
-- `<skills-dir>` = Skills directory name (`.codestudio\skills`, `.agent\skills`, `.agents\skills`, `.github\skills`, or `skills`)
+**What Script Does:**
+1. Reads `control-mapping.json` (Simple or Complex structure)
+2. Reads `controls.csv` for control → skill metadata
+3. Executes BM25 semantic search on element `type_hint` values
+4. Matches each control to best Syncfusion control + skill
+5. Updates `control-mapping.json` with:
+   - `control` — Syncfusion control class name (e.g., `SfMaskedTextBox`)
+   - `skill` — Skill reference (e.g., `syncfusion-wpf-maskedtextbox`)
+   - `score` — BM25 match confidence (0-100)
+   - `validation` — "✓ VERIFIED" or "✗ FALLBACK"
 
-### Real Examples
+**Output:**
+- Enriched `control-mapping.json` with skill mappings (file updated automatically)
+- Console prints execution metrics and validation results
 
-```powershell
-# With .codestudio skills directory
-cd d:\MyWpfApp\.codestudio\skills\syncfusion-wpf-ui-builder\scripts
-node controls_search.cjs d:\MyWpfApp\control-mapping.json
-
-# With .agents skills directory
-cd d:\MyWpfApp\.agents\skills\syncfusion-wpf-ui-builder\scripts
-node controls_search.cjs d:\MyWpfApp\control-mapping.json
-
-# With visible skills directory
-cd d:\MyWpfApp\skills\syncfusion-wpf-ui-builder\scripts
-node controls_search.cjs d:\MyWpfApp\control-mapping.json
-```
-
-### Path Resolution
-
-- ✅ **Absolute paths work best** - Full path from C:\ or D:\ (most reliable)
-- ✅ **IDE-agnostic** - Works with ANY skills directory structure
-- ✅ **Editor-independent** - Not tied to specific IDE conventions
-- ✅ Script validates path exists before processing
-- ❌ Avoid relative paths (can cause "file not found" errors)
-
-### Skill File Discovery Paths
-
-Control skill files can be located in any standard path:
-- `.codestudio/skills/<skill-name>/SKILL.md`
-- `.agent/skills/<skill-name>/SKILL.md`
-- `.agents/skills/<skill-name>/SKILL.md`
-- `.github/skills/<skill-name>/SKILL.md`
-- `skills/<skill-name>/SKILL.md`
-
-### Expected Output
-
-Script outputs JSON with `mapped_controls` array:
-- Each element mapped to Syncfusion control + BM25 score
-- Unmatched elements → fallback to `NATIVE_XAML`
-- **Capture output in chat context ONLY** (do NOT save to file)
-
-### Output Handling
-
-**Actions:**
-- ✅ Script outputs control mapping JSON to terminal
-- ✅ Copy output into chat context
-- ✅ Reference mapping in Stage 4 (theming) & Stage 5 (code generation)
-- ✅ Do NOT save script output to file (keep in conversation only)
-
-**Why:**
-- Token efficiency - only control results in chat
-- Clean context for reasoning stages
-- Avoid file proliferation
-
----
-
-## Output: Control Mapping Results
-
-### Example Output
-
+**Output Schema (in `control-mapping.json` after script execution):**
 ```json
 {
+  "project_type": "Simple",
   "control_type": "Login Window",
   "variant": "Standard",
-  "mapped_controls": [
+  "elements": [
     {
-      "element_id": "email_input",
-      "element_name": "Email Address",
+      "id": "email_input",
+      "name": "Email Address",
+      "type_hint": "textbox email form validation",
       "control": "SfMaskedTextBox",
       "skill": "syncfusion-wpf-maskedtextbox",
-      "score": 13.24,
-      "validation": "✓ VERIFIED in controls.csv"
-    },
-    {
-      "element_id": "password_input",
-      "element_name": "Password",
-      "control": "PasswordBox",
-      "skill": "syncfusion-wpf-passwordbox",
-      "score": 12.87,
-      "validation": "✓ VERIFIED in controls.csv"
-    },
-    {
-      "element_id": "remember_me",
-      "element_name": "Remember Me",
-      "control": "SfCheckBox",
-      "skill": "syncfusion-wpf-checkbox",
-      "score": 11.45,
-      "validation": "✓ VERIFIED in controls.csv"
-    },
-    {
-      "element_id": "submit_button",
-      "element_name": "Submit",
-      "control": "ButtonAdv",
-      "skill": "syncfusion-wpf-button",
-      "score": 10.89,
-      "validation": "✓ VERIFIED in controls.csv"
+      "score": 18.5,
+      "validation": "✓ VERIFIED"
     }
-  ]
+  ],
+  "validation_status": "PASS",
+  "execution_metrics": {
+    "total_elements": 4,
+    "successfully_mapped": 4,
+    "fallback_controls": 0,
+    "execution_time_ms": 125
+  }
 }
 ```
 
-### Output Field Definitions
+---
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `element_id` | string | Unique identifier (snake_case) |
-| `element_name` | string | Display name |
-| `control` | string | **Official Syncfusion WPF control name from controls.csv** (e.g., SfMaskedTextBox, ButtonAdv, SfDataGrid) - used in XAML |
-| `skill` | string | Skill reference label (e.g., `syncfusion-wpf-datagrid`) - used for NuGet lookup |
-| `score` | number | BM25 relevance score (40+ = excellent) |
-| `validation` | string | "✓ VERIFIED in controls.csv" or "✗ NOT FOUND in controls.csv" |
+### Step 6: Validate Mapping Results (MANDATORY)
 
-### Critical: `control` vs `skill`
+After script execution, verify all checks pass before proceeding to Stage 4:
 
-- ✅ `control`: **Official Syncfusion WPF control name** (e.g., `SfMaskedTextBox`, `SfDataGrid`) - used directly in XAML
-- ✅ `skill`: **Reference label** (e.g., `syncfusion-wpf-maskedtextbox`) - used to find official NuGet packages
-- ⚠️ **These are DIFFERENT values** - `control` is for XAML, `skill` is for NuGet lookup in Stage 5
-- ✅ Stage 5 converts: `syncfusion-wpf-maskedtextbox` → `Syncfusion.SfInput.WPF`
+| Check | Validation Rule | Fail Action |
+|---|---|---|
+| **View Completeness** | All Stage 1 views present in `control-mapping.json` | Re-run script or update JSON structure |
+| **Element Count Match** | `total_elements` = `successfully_mapped` + `fallback_controls` | Re-run script |
+| **Control Names** | All `control` values match official Syncfusion class names (exact casing) | Correct spelling/casing |
+| **Skill Mapping** | All `skill` values resolve to valid Syncfusion packages (Stage 6) | Verify against controls.csv |
+| **Score Validation** | Score > 10 for Syncfusion controls; Score 0 for NATIVE_XAML fallbacks | Review low-score mappings |
+| **Fallback Documentation** | Fallback controls have `fallback_reason` explained | Add reason if missing |
 
-**Conversion Examples:**
-- `control: SfMaskedTextBox` + `skill: syncfusion-wpf-maskedtextbox` → NuGet: `Syncfusion.SfInput.WPF`
-- `control: SfDataGrid` + `skill: syncfusion-wpf-datagrid` → NuGet: `Syncfusion.SfDataGrid.WPF`
-- `control: ButtonAdv` + `skill: syncfusion-wpf-button` → NuGet: `Syncfusion.Shared.WPF`
+**Pass Condition:** `validation_status: "PASS"` with 0 validation errors → Ready for Stage 4
 
 ---
 
-## BM25 Search Algorithm
+## Critical Mapping Rules
 
-The controlMapper uses **BM25 (Best Matching 25)** for semantic relevance:
-
-1. **Tokenizes** type_hint and control keywords
-2. **Calculates** term frequency (TF) in each control
-3. **Calculates** inverse document frequency (IDF) across all controls
-4. **Applies** BM25 formula for semantic ranking
-5. **Returns** ranked results with scores
-
-**Quality:** Only controls with score > 0 are matched; unmatched → NATIVE_XAML
+| Rule | Why |
+|---|---|
+| **Skill labels ≠ NuGet packages** | Labels (e.g., `syncfusion-wpf-datagrid`) are search references only; NuGet resolution happens in Stage 6 |
+| **All controls must map** | No "unmapped" elements allowed; use `NATIVE_XAML` fallback with documented reason |
+| **Match from controls.csv** | Do NOT assume or infer control names; always match from official CSV |
+| **Stage 3 = Single source of truth** | Stage 5 code generation follows Stage 3 mapping exactly (no deviations without documented override) |
+| **Simple & Complex preserved** | Script maintains original JSON structure; only updates control/skill fields |
 
 ---
 
-## Workflow Benefits
+## Stage 3 Output Summary
 
-| Aspect | Benefit |
-|--------|---------|
-| **Automation** | Single script run maps all controls instantly |
-| **Accuracy** | BM25 algorithm ranks best Syncfusion control per element |
-| **Persistence** | `control-mapping.json` stays in project (version control + auditing) |
-| **Token Efficiency** | Filesystem I/O avoids re-passing JSON to chat |
-| **Scriptability** | Node.js script is IDE-agnostic and platform-independent |
-| **Reusability** | Mapping can be re-run if requirements change |
+**Artifact:** Updated `control-mapping.json` (project root)
 
----
+**Contents:**
+- Original structure (Simple or Complex) preserved
+- Each element enriched with:
+  - `control` — Syncfusion control class (e.g., `SfMaskedTextBox`)
+  - `skill` — Skill reference for NuGet resolution (e.g., `syncfusion-wpf-maskedtextbox`)
+  - `score` — BM25 match confidence (0-100)
+  - `validation` — "✓ VERIFIED" or "✗ FALLBACK"
+- Metadata: `validation_status`, `execution_metrics`
 
-## Architecture
+**Consumer:** Stage 4 (Theming), Stage 5 (Code Generation), Stage 6 (Dependencies)
 
-- **Input**: User requirements + control type from Stage 1
-- **Processing**: 
-  - Control analysis → JSON structure with `type_hint`
-  - BM25 semantic search on 100+ Syncfusion WPF controls
-- **Output**: 
-  - `control-mapping.json` (project root) - layout structure for Stage 4 & 5
-  - Chat summary - element count, controls mapped
-- **Data Sources**: 
-  - `scripts/controls.csv` (Syncfusion WPF controls)
-  - `scripts/controls_search.cjs` (BM25 mapper - Node.js)
-- **Artifacts**: `control-mapping.json` (persistent, reused by Stage 5)
-- **Context**: Control mapping results in conversation only (no file)
-
----
-
-## Stage 3-5 Workflow Summary
-
-| Stage | Task | Input | Output | Artifact |
-|-------|------|-------|--------|----------|
-| **Stage 3** | Analyze requirements, create control-mapping.json | User requirements + control type | `control-mapping.json` with element structure | ✅ `control-mapping.json` |
-| **Stage 4** | Map elements to Syncfusion WPF controls (script-based) | `control-mapping.json` | Control mapping results with BM25 scores | Context only (no file) |
-| **Stage 5** | Generate code with controls | `control-mapping.json` + control mapping from context | WPF `.xaml` + `.xaml.cs` with styling | ✅ Control files |
-
----
-
-## Status
-
-✅ **FULLY AUTOMATED** - No user interaction needed
-✅ **Single pass** - `control-mapping.json` created once, controls mapped immediately
-✅ **Token efficient** - No duplication or variant selection overhead
-✅ **Data-driven** - BM25 semantic search on 100+ Syncfusion WPF controls
-✅ **Ready for Stage 4-5** - Control mapping feeds directly to subsequent stages
+**Status:** ✅ **Fully Automated** — Single script execution produces complete control-to-skill mapping

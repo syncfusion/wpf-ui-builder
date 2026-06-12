@@ -1,21 +1,9 @@
 # Stage 4: Theming & Design System Selection
 
-**Purpose:** Understand design system trade-offs and lock theming decisions before code generation.
+**Purpose:** Lock all design system decisions before Stage 5 code generation. This stage is decision-making only — no code is generated here.
 
-## Overview
-
-This stage is about **decision-making clarity**, not code generation. You'll:
-
-- **Confirm your .NET platform** (from Stage 2) and understand its design philosophy
-- **Select a Syncfusion WPF theme** that aligns with your application type
-- **Define color architecture** based on principles (perceptual uniformity, contrast, brand cohesion)
-- **Establish spacing and typography scales** that respect readability and hierarchy (DPI-aware)
-- **Plan responsive strategy** for window sizing and scaling
-- **Document XAML styling patterns** so Stage 5 can generate consistent code
-
-**Key Insight:** Your application type IS a design system choice. Enterprise applications, consumer-facing UIs, and internal tools have fundamentally different philosophies about spacing, color, and control behavior. Stage 4 ensures your Syncfusion WPF theme and custom XAML styling align with your application's intent.
-
-**Output:** Design system decisions documented and ready for implementation in Stage 5.
+**Input:** Stage 2 (project config, .NET version) + Stage 3 (control-mapping.json)
+**Output:** All decisions below locked and ready for Stage 5 implementation.
 
 ---
 
@@ -28,215 +16,119 @@ This stage is about **decision-making clarity**, not code generation. You'll:
 5. [Responsive Strategy (DPI-Aware Scaling)](#5-responsive-strategy-dpi-aware-scaling)
 6. [Motion & Accessibility Standards](#6-motion--accessibility-standards)
 7. [XAML Styling Token Architecture](#7-xaml-styling-token-architecture)
-8. [Syncfusion WPF control Integration](#8-syncfusion-wpf-control-integration)
-9. [Load Your Application Reference (MANDATORY)](#9-load-your-application-reference-mandatory)
-10. [Stage 4 Decision Checklist](#10-stage-4-decision-checklist)
-11. [What Stage 5 Does With These Decisions](#what-stage-5-does-with-these-decisions)
+8. [Syncfusion WPF Control Integration](#8-syncfusion-wpf-control-integration)
+9. [MVVM Integration Bridge](#8a-mvvm-integration-bridge-critical)
+10. [Load Your Application Reference (MANDATORY)](#9-load-your-application-reference-mandatory)
+11. [Stage 4 Decision Checklist](#10-stage-4-decision-checklist)
+12. [What Stage 5 Does With These Decisions](#11-what-stage-5-does-with-these-decisions)
+
+---
+
+## ⛔ ERROR HANDLING: Theme & Resource Issues (MC3072, ResourceDictionary Exceptions)
+
+**Common errors in Stage 4-5:**
+- ❌ `MC3072: Property 'BorderBrush' does not exist in namespace...`
+- ❌ `ResourceDictionary.DeferrableContent exception`
+- ❌ Build fails: "Type not found" for Syncfusion theme resources
+
+**Root cause:** Manual Syncfusion theme merging or missing `SfSkinManager` initialization
+
+**Mandatory fixes:**
+1. ✅ Apply Syncfusion theme ONLY via `SfSkinManager.SetTheme(this, new Theme("<LockedThemeName>"))` in Window constructor
+2. ✅ Set `SfSkinManager.ApplyStylesOnApplication = true` in `App.xaml.cs` `OnStartup()`
+3. ❌ NEVER merge Syncfusion theme ResourceDictionaries manually into `Application.Resources`
+4. ⛔ **MANDATORY: When using Syncfusion themes — DO NOT create or merge custom resources in `Themes/Colors.xaml`, `Themes/Spacing.xaml`, `Themes/Typography.xaml`**
+5. ✅ If custom app resources needed (non-theme): Define ONLY in `App.xaml` or separate non-theme files
+6. ⛔ If build fails: Check skill file for correct `SfSkinManager` API pattern before modifying code
 
 ---
 
 ## 1. WPF Application Philosophy
 
-**Input:** .NET platform and application type detected in Stage 2
+Confirm the application type detected in Stage 2. This choice drives all downstream theme, color, and layout decisions.
 
-**Decision Point:** Your application type defines everything downstream. Understand what you're committing to:
+| Application Type | Design Priority | Syncfusion Theme Pairing |
+|---|---|---|
+| **Enterprise** | Data density, task efficiency | Material or Office2019 |
+| **Consumer** | Clarity, modern aesthetics | FluentLight or Material3Light |
+| **LOB** | Domain workflows, expert users | Office2019 or Material |
+| **Creative/Tool** | Dark mode, visual customization | FluentDark or Material3Dark |
 
-### Understanding Your Application Type
-
-**Enterprise Application**
-- Philosophy: Data-heavy, task-oriented interfaces with grid-based layouts
-- Design implication: Efficiency > aesthetics; information density is priority
-- Syncfusion pairing: Use Material or Office2019 theme (professional, data-centric visual language)
-- Trade-off: Consistent, professional look, but less distinctive branding
-
-**Consumer Application**
-- Philosophy: Task-focused with emphasis on clarity and user guidance
-- Design implication: Balance efficiency with approachability; clean, modern aesthetics
-- Syncfusion pairing: Use Fluent or Material theme (modern, accessible visual language)
-- Trade-off: Visually appealing, but requires careful information prioritization
-
-**LOB (Line of Business) Application**
-- Philosophy: Specific workflows tailored to domain users
-- Design implication: Optimize for expert users; domain-specific patterns
-- Syncfusion pairing: Use Material or Office2019 theme (familiar, productivity-focused)
-- Trade-off: Specialized, but less transferable to other contexts
-
-**Creative/Design Tool**
-- Philosophy: Heavy UI customization, dark theme preference, real-time feedback
-- Design implication: Visual hierarchy matters; dark mode essential
-- Syncfusion pairing: Use Fluent Dark or custom Material Dark (supports intense work)
-- Trade-off: Distinctive but requires careful accessibility planning
-
-### The Non-Obvious Truth
-
-**You cannot mix design philosophies.** Don't use material design principles for enterprise data grids, or consumer-friendly simplicity for domain-specific workflows. Each application type makes specific assumptions about user expertise, task density, and interaction patterns. Mixing them creates confusing, unusable interfaces.
-
-### Decision: Confirm Your Application Type
-
-Review Stage 2's detection:
-- What is the application's primary purpose?
-- Who are the end users (enterprise staff, consumers, technical experts)?
-- Is this a one-time task UI or long-use productivity tool?
-- Does branding / visual distinctiveness matter?
-
-If Stage 2 detected wrong, or you want to override: **Document why.** Design decisions need reasoning.
-
-**→ MANDATORY:** After confirming, you MUST proceed to **Section 9** to load your application-specific implementation reference. Do not skip this step.
-
-**Output:** WPF application philosophy understood and confirmed
+**Rules:**
+- ✅ Confirm or override Stage 2's detected type — document the reason if overriding
+- ❌ Do not mix application philosophies (e.g., consumer simplicity in an enterprise data grid)
+- ✅ Proceed to Section 9 after confirming application type
 
 ---
 
 ## 2. Syncfusion WPF Theme Alignment
 
-**Core Principle:** Syncfusion WPF controls must coordinate with your application design philosophy, not fight it.
+Select one Syncfusion theme. This choice is **locked** — it determines the NuGet package installed in Stage 6 and the `SfSkinManager` call generated in Stage 5.
 
-### Why Theme Matching Matters
+### Theme Selection
 
-Syncfusion provides 17 professionally designed built-in themes for WPF across multiple design systems. When your Syncfusion WPF theme aligns with your application type, control styling integrates seamlessly. When they don't align, you'll spend Stage 5+ fighting style conflicts and writing excessive custom XAML.
+| Scenario | Theme |
+|---|---|
+| Windows 11 native appearance | `Windows11Light` / `Windows11Dark` |
+| Microsoft Fluent (reveal effects, rounded) | `FluentLight` / `FluentDark` |
+| Material Design 3 (modern, expressive) | `Material3Light` / `Material3Dark` |
+| Enterprise / Office-style | `Office2019Colorful` / `Office2019White` / `Office2019Black` |
+| Follows OS light/dark preference | `SystemTheme` |
 
-**Example of alignment:**
-- Windows 11 focused application + **Windows11Light/Dark** = Native Windows 11 appearance with clean, minimal design language.
-- Modern high-end application + **FluentLight/Dark** = Reveal animations, acrylic effects, and rounded corners.
-- Material Design application + **Material3Light/Dark** = Follows latest Material Design 3 guidelines with vibrant colors.
-- Enterprise application + **Office2019Colorful/White** = Professional business appearance familiar to Office users.
+### Platform Compatibility
 
-### Theme Selection Decision Tree
+| Platform | Supported Themes | Min Syncfusion |
+|---|---|---|
+| .NET Framework 4.6.2 / 4.7.2 | All themes | 2023.3 |
+| .NET 8.0+ | All themes | 2024.1 |
+| .NET 6.0 – 7.0 | All except Material3 (partial) | 2024.1 for Material3 |
 
-**If you target Windows 11 users:**
-→ Use **Windows11Light** or **Windows11Dark**
-- Why: Native appearance, strong contrast for accessibility.
+### Theme NuGet Packages
 
-**If you want a polished, Microsoft-style appearance:**
-→ Use **FluentLight** or **FluentDark**
-- Why: Reveal animations and reveal-styled shadows.
+| Theme | NuGet Package |
+|---|---|
+| `Windows11Light` | `Syncfusion.Themes.Windows11Light.WPF` |
+| `Windows11Dark` | `Syncfusion.Themes.Windows11Dark.WPF` |
+| `FluentLight` | `Syncfusion.Themes.FluentLight.WPF` |
+| `FluentDark` | `Syncfusion.Themes.FluentDark.WPF` |
+| `Material3Light` | `Syncfusion.Themes.Material3Light.WPF` |
+| `Material3Dark` | `Syncfusion.Themes.Material3Dark.WPF` |
+| `Office2019Colorful` | `Syncfusion.Themes.Office2019Colorful.WPF` |
 
-**If you need cross-platform Material Design consistency:**
-→ Use **Material3Light** or **Material3Dark** (preferred) or **MaterialLight/Dark** (Classic)
-- Why: Expressive colors and modern Material components.
-
-**If you are building an Enterprise/Office-style application:**
-→ Use **Office2019Colorful/White/Black/DarkGray**
-- Why: Familiar look and high visibility for business productivity.
-
-**If you want to follow User OS Preferences:**
-→ Use **SystemTheme**
-- Why: Automatically follows OS settings (Light/Dark) and respects Windows accessibility settings.
-
-### The Hard Rule
-
-**Never pair a Syncfusion WPF theme with a mismatched application type.** If you do:
-- Stage 5 code generation will be inconsistent
-- Custom XAML will grow chaotic as you patch conflicts
-- Your design system won't scale
-- Users will feel the design doesn't fit their workflow
-
-If your application type is unclear or mixed, document it now and choose the primary theme.
-
-**→ REQUIRED:** Your theme choice is locked. This determines your **Section 9 application reference file**.
-
-**Output:** Syncfusion WPF theme aligned with application type
+**Version rule:** Theme NuGet package version MUST match all other Syncfusion packages detected in Stage 2.
 
 ---
 
 ## 3. Color System Architecture
 
-### 3.1 Color Palette Principles (.NET Standard)
-WPF applications should follow .NET coloring standards to ensure predictability and accessibility across Windows versions.
+Define a semantic color palette. When using Syncfusion themes, colors are provided by `SfSkinManager` — do NOT create `Themes/Colors.xaml`. Custom colors are only needed for app-level branding elements not covered by the Syncfusion theme.
 
-- **System Brushes:** Use `SystemColors` where possible for native interaction.
-- **Dynamic Resources:** Always use `{DynamicResource}` for theme-dependent colors to support runtime switching.
-- **Color Contrast:** Desktop standards require at least 4.5:1 for text.
+**Required color roles (custom overrides only — when NOT using Syncfusion theme colors):**
+- **Primary** — brand color, CTAs, key actions
+- **Semantic** — success (`#4CAF50`), warning (`#FFC107`), error (`#F44336`), info (`#2196F3`)
+- **Neutral scale** — text, backgrounds, borders
+- **Surface** — cards, containers (optional)
 
-### 3.2 Brand Color & Semantic Palette
+**Rules:**
+- ✅ Use `{DynamicResource}` for all theme-dependent colors (supports runtime switching)
+- ✅ Verify contrast ≥ 4.5:1 for all text and UI controls (WCAG AA)
+- ❌ Do NOT hardcode hex values directly in XAML controls — always use resource keys
+- ❌ Do NOT create `Themes/Colors.xaml` when Syncfusion theme is active — theme provides these
+- ❌ Do NOT deviate from the selected theme's semantic naming
 
-**The Decision Point:** Your color palette must have clear roles.
-
-Define:
-1. **Primary color** (brand, CTAs, key actions)
-2. **Semantic colors** (success, warning, error, info)
-3. **Neutral scale** (text, backgrounds, borders)
-4. **Surface colors** (cards, modals, containers) — optional if neutrals are sufficient
-
-**Framework-Specific Consideration:**
-
-- **Syncfusion WPF Theme users:** You'll configure colors in XAML ResourceDictionary files (Colors.xaml). Syncfusion themes follow standard semantic naming (Primary, Success, Warning, Danger, Info). Follow this pattern for consistent control styling.
-- **Office2019 / Fluent users:** These design systems follow Microsoft's specific color token naming and behavior. Ensure your custom XAML resources respect their palette conventions to avoid visual debt.
-- **Material3 users:** Material Design 3 has specific color token naming (Primary, Secondary, Tertiary, Error, Surface) with fixed roles. If using the Syncfusion Material3 theme, don't deviate from this schema.
-
-**The Anti-Pattern:** Creating a palette that looks good in isolation but doesn't respect framework conventions. Your custom primary color might be beautiful, but if it breaks your framework's semantic system, it creates inconsistency.
-
-### 3.3 Tinted Neutrals for Cohesion (WPF)
-
-**Why tinted neutrals matter in WPF:**
-
-Pure gray (zero saturation in HSL/HSV) feels lifeless next to a brand color in XAML SolidColorBrush resources. Adding a *tiny* saturation value and tinting toward your brand hue creates subconscious visual cohesion without reading as "tinted."
-
-**Example (XAML):**
-```xaml
-<!-- Brand color: Teal -->
-<SolidColorBrush x:Key="BrandColor" Color="#0DA5A5" />
-
-<!-- Pure gray: Lifeless -->
-<SolidColorBrush x:Key="PureGray" Color="#808080" />
-
-<!-- Tinted gray: Cohesive (teal-tinted gray) -->
-<SolidColorBrush x:Key="TintedGray" Color="#7A9999" />
-```
-
-**But avoid the reflex:** Don't always tint toward warm orange or cool blue. That's the laziest default. Tint toward *this specific project's* brand hue.
-
-### 3.4 Dark Mode: Structural, Not Inverted (WPF)
-
-**The Misconception:** Dark mode is just light mode inverted.
-
-**The Reality:** Dark mode requires different design thinking in WPF:
-- Light mode uses shadow (darker) for depth
-- Dark mode uses lighter surfaces for depth (no harsh shadows)
-- Light mode uses vibrant accents
-- Dark mode desaturates accents slightly (vibrant colors feel aggressive on dark backgrounds)
-- Light mode: text is dark on light background
-- Dark mode: text is light on dark background, usually needs slightly reduced font weight
-
-**WPF Implementation Consideration:**
-- Dark mode uses separate ResourceDictionary files (e.g., `DarkTheme.xaml`)
-- Toggle via `Application.Current.Resources.MergedDictionaries` at runtime
-- Syncfusion WPF controls support Material Dark and Fluent Dark themes natively
-
-**Decision Point:** Are you supporting dark mode?
-- If **no**: You're done here
-- If **yes**: Plan it now. It's not an afterthought, it's a design system choice
-
-**📖 For Syncfusion WPF Themes:**
-Refer to **Skill: syncfusion-wpf-theming** → **built-in-themes.md** for:
-- Detailed characteristics of Windows11, Fluent, Material, and Office2019 themes.
-- NuGet package names for all 17 documented themes.
-- Best practices for choosing between Light/Dark variants.
-- Visual characteristics of each design system.
-
-**Output:** Color system architecture decided
+**Dark mode decision (make now):**
+- Light only → no action needed
+- Dark support → use matching dark theme name (e.g., `Windows11Dark`); apply via `SfSkinManager`
 
 ---
 
-## 4. Spacing & Typography Systems (WPF)
+## 4. Spacing & Typography Systems
 
-### 4.1 Spacing Grid: DPI-Aware Sizing
+### Spacing (DPI-Aware)
 
-**Decision Point:** WPF spacing must account for DPI scaling. Unlike web pixels, WPF device-independent units (DIP) scale with system DPI.
+Use a 4pt base grid defined in `Themes/Spacing.xaml`. WPF device-independent units (DIP) scale automatically with system DPI.
 
-**Standard DPI Grid (96 DPI = 100%):** 4px base unit
-- Why: Matches standard Windows UI conventions
-- When to override: If you need coarser granularity (8px grid: 8px, 16px, 24px...)
-
-**At Different DPI Levels:**
-- 100% DPI (96 DPI): Use 4px base units
-- 125% DPI (120 DPI): 4px becomes 5px automatically (WPF handles scaling)
-- 150% DPI (144 DPI): 4px becomes 6px automatically
-- 200% DPI (192 DPI): 4px becomes 8px automatically
-
-**WPF XAML Example:**
 ```xaml
-<!-- Define spacing in device-independent units (DIP) -->
 <sys:Double x:Key="SpaceXSmall">4</sys:Double>
 <sys:Double x:Key="SpaceSmall">8</sys:Double>
 <sys:Double x:Key="SpaceMedium">12</sys:Double>
@@ -244,550 +136,280 @@ Refer to **Skill: syncfusion-wpf-theming** → **built-in-themes.md** for:
 <sys:Double x:Key="SpaceXLarge">24</sys:Double>
 ```
 
-**The Anti-Pattern:** Using hard-coded pixel values in XAML. Always use ResourceDictionary resources so spacing scales with DPI automatically.
+- ❌ Never hardcode pixel values in XAML — always reference spacing resources
 
-### 4.2 Typography Hierarchy: Modular Scale, Not Random (WPF)
+### Typography
 
-**Non-Obvious Principle:** Too many font sizes that are too close together create muddy hierarchy in WPF UIs.
+Use a consistent modular scale defined in `Themes/Typography.xaml`. Recommended ratio: **1.25** (major third).
 
-Compare:
-- ❌ Muddy: 11pt, 12pt, 13pt, 14pt, 15pt (hard to distinguish hierarchy)
-- ✅ Clear: 10pt, 12pt, 14pt, 16pt, 18pt, 22pt (obvious visual progression)
-
-**Use a consistent ratio in WPF.** Common options:
-- 1.25 (major third) — good balance, subtle but clear
-- 1.33 (perfect fourth) — more contrast
-- 1.5 (perfect fifth) — high contrast, for designs where hierarchy needs obvious
-
-**Minimum Body Text Size (WPF):** Never smaller than 10pt on screen (96 DPI standard). Smaller than this strains eyes and fails accessibility standards.
-
-**Line Height Rule (WPF):** 1.4-1.6 for body text in TextBlocks. Increase for light text on dark (add 0.05-0.1 because light text reads heavier). Decrease for headlines (1.2 is fine for short text).
-
-**WPF XAML Typography Definition:**
 ```xaml
-<!-- Define typography hierarchy in ResourceDictionary -->
 <FontFamily x:Key="FontFamilyDefault">Segoe UI</FontFamily>
-<sys:Double x:Key="FontSizeBody">11</sys:Double>
 <sys:Double x:Key="FontSizeSmall">10</sys:Double>
+<sys:Double x:Key="FontSizeBody">11</sys:Double>
 <sys:Double x:Key="FontSizeLarge">13</sys:Double>
 <sys:Double x:Key="FontSizeHeading">16</sys:Double>
 <sys:Double x:Key="FontSizeTitle">20</sys:Double>
 ```
 
-**Decision Point:** Are you using Syncfusion WPF theme defaults, or defining custom sizes?
-- Default: Faster, proven, integrates with Syncfusion controls
-- Custom: More control, but requires careful testing for hierarchy clarity
-
-**Output:** Spacing and typography systems decided
+- Minimum body font: **10pt** (96 DPI baseline)
+- Line height: **1.4–1.6** for body `TextBlock`; **1.2** for headings
 
 ---
 
 ## 5. Responsive Strategy (DPI-Aware Scaling)
 
-### 5.1 Window-First Thinking (WPF)
+**Design approach:** Fluid layouts — no fixed resolutions. Windows can be any size.
 
-**Principle:** Start with small window constraints, scale UP for larger monitors. Never design for fixed resolution.
+| Window Category | Min Size | Use Case |
+|---|---|---|
+| Small | 600×400 | Dialogs, utilities |
+| Medium | 1024×768 | Standard business apps |
+| Large | 1280×1024+ | Dashboards, multi-pane |
 
-Why: WPF windows can be any size. DPI-aware scaling ensures UI remains readable at 96, 120, 144, and 192 DPI. If you hardcode sizes, your UI will break on high-DPI displays or when windows are resized.
+**Layout panel strategy:**
+- `Grid` with `*` star sizing for flexible multi-column layouts
+- `StackPanel` for single-column or narrow views
+- `DockPanel` for fixed header/footer with flexible content
+- ❌ Do not use hardcoded pixel widths for layout columns
 
-### 5.2 Size Categories (WPF Windows)
-
-**Standard window size categories:**
-- **Small (800×600):** Dialog-sized windows, small utilities
-- **Medium (1024×768):** Standard business applications
-- **Large (1280×1024+):** Data-heavy dashboards, multi-pane layouts
-
-**DPI Awareness Decision:**
-- **Per-Monitor DPI (WPF Default):** Each monitor's DPI is respected independently (correct for multi-monitor setups)
-- **System DPI:** Single DPI setting for all monitors (simpler but less flexible)
-
-**Recommendation:** Always enable per-monitor DPI awareness in your WPF application for multi-monitor support.
-
-**Content-Driven Overrides:** If your application requires a minimum window size for usability, set `MinWidth` and `MinHeight` in XAML. Common patterns:
-```xaml
-<Window MinWidth="600" MinHeight="400" />
-```
-
-**Decision Point:** Are you designing for fixed window sizes or fluid layouts?
-- Fixed sizes: Easier initial design, but poor experience on different screen sizes
-- Fluid (Recommended): More effort initially, scales to any window size or DPI
-
-### 5.3 Layout Panels for Responsive Behavior (WPF)
-
-**WPF equivalent to CSS media queries: Layout Panels**
-
-Instead of CSS breakpoints, use WPF's layout panels to respond to available space:
-- **Grid:** Column/row definitions respond to window size
-- **StackPanel:** Vertical stacking on narrow windows
-- **DockPanel:** Header/footer fixed, content flexible
-- **UniformGrid:** Equal-sized cells that scale with window
-
-**Example - Responsive Layout (narrow to wide):**
-```xaml
-<!-- Narrow window: Single column -->
-<StackPanel Orientation="Vertical" />
-
-<!-- Wide window: Use Grid for multi-column -->
-<Grid>
-  <Grid.ColumnDefinitions>
-    <ColumnDefinition Width="*" />
-    <ColumnDefinition Width="*" />
-  </Grid.ColumnDefinitions>
-</Grid>
-```
-
-**Modern best practice:** Use `*` (star sizing) for flexible proportions, avoid hard-coded pixel widths for layout columns.
-
-**Compatibility Note:** All WPF versions support layout panels natively. No fallbacks needed.
-
-**Output:** Responsive strategy decided
+**DPI awareness:**
+- Enable per-monitor DPI awareness in `app.manifest` (supports multi-monitor setups)
+- Set `MinWidth` / `MinHeight` in XAML only where minimum usability requires it
 
 ---
 
 ## 6. Motion & Accessibility Standards
 
-### 6.1 Motion Purpose and Timing
+### Animation Timing
 
-**Rule:** Animations serve specific purposes. Don't animate for aesthetics alone.
+| Duration | Use |
+|---|---|
+| 100ms | Hover states, instant feedback |
+| 300ms | Transitions, dropdowns, state changes |
+| 500ms | Major layout reveals |
 
-Good uses:
-- **Transitions:** State changes (button press, hover)
-- **Reveals:** Elements appearing (dropdown open, toast notification)
-- **Feedback:** User actions acknowledged (loading spinner, success checkmark)
+- ✅ Respect `prefers-reduced-motion` — set animation duration to 0ms when enabled (WCAG requirement)
+- ❌ Do not animate for aesthetics alone; every animation must communicate intent
 
-Bad uses:
-- Decorative floating elements
-- Parallax scrolling
-- Anything that doesn't communicate intent
+### Accessibility
 
-**Standard durations:**
-- Micro (100ms): Hover feedback, immediate response
-- Standard (300ms): Transitions, state changes, small reveals
-- Slow (500ms): Major layout changes, important reveals
-
-**The Non-Obvious Truth:** Slower isn't always better. 300ms feels responsive. 500ms feels sluggish. 100ms feels snappy but can feel jarring on slower devices.
-
-### 6.2 Reduced Motion: Non-Negotiable
-
-**WCAG Requirement:** Respect `prefers-reduced-motion: reduce` by removing animations.
-
-This isn't optional accessibility—it's a legal requirement for accessible UI. Users with vestibular disorders experience motion sickness from animations.
-
-**Implementation:** When a user has `prefers-reduced-motion` enabled, disable all animations (duration → 0ms).
-
-### 6.3 Touch Targets
-
-**Rule:** Interactive elements must be at least 44x44px (WCAG recommendation).
-
-This includes:
-- Buttons
-- Form inputs
-- Links
-- Checkbox/radio areas
-
-**Space them at least 8px apart** to prevent accidental touches.
-
-**Visual vs Touch Size:** A button might *look* like 24x24px (visual icon), but its touch target should be 44x44px via padding or pseudo-elements.
-
-### 6.4 Color Contrast
-
-**WCAG 2.1 AA requirement:** 4.5:1 minimum contrast for text and UI controls.
-
-This means:
-- Dark text on light background must be dark enough
-- Light text on dark background must be light enough
-- Placeholder text counts—it needs contrast too
-
-**Common fail:** Light gray placeholder text on white. It looks good but fails accessibility.
-
-**Testing:** Don't trust your eyes. Use WCAG contrast checkers to verify.
-
-**Decision Point:** Are you aiming for AA (minimum legal requirement) or AAA (higher standard, harder to achieve)?
-
-**Output:** Motion & accessibility standards understood
+- Minimum touch/click target: **44×44 device-independent units**
+- Minimum spacing between interactive targets: **8px**
+- Color contrast: **≥ 4.5:1** for text and UI controls (WCAG 2.1 AA)
+- Apply `AutomationProperties.Name` and `AutomationProperties.HelpText` on all interactive Syncfusion controls
+- Keyboard navigation: correct tab order, visible focus ring on `SfButton` and `SfTextInputLayout`
 
 ---
 
 ## 7. XAML Styling Token Architecture
 
-### 7.1 Resource Key Naming: Semantic, Not Descriptive
+### Resource File Structure
 
-**The Problem with Descriptive Names:**
-- `BlueColorBrush600`, `PaddingValue16` are hardcoded to specific values
-- If you need to change "blue" to "purple," you rename every resource and break meaning
-- New team members don't understand *why* a resource is used
+**When using Syncfusion themes:**
+❌ Do NOT create `Themes/Colors.xaml`, `Themes/Spacing.xaml`, `Themes/Typography.xaml`
+❌ Do NOT merge theme resources into `<Application.Resources>`
 
-**Semantic Naming (Recommended):**
-- `PrimaryColorBrush` means "brand color" (value irrelevant)
-- `LargeSpacingValue` means "large spacing" in context
-- `HeadingFontSize` means "heading typography" (specific size irrelevant)
+**Instead:**
+✅ Theme resources (colors, spacing, typography) are provided by `SfSkinManager` at runtime
+✅ If custom app-level resources needed (non-theme): Define ONLY in `<Application.Resources>`
+✅ Keep custom resources completely separate from Syncfusion theme application
 
-If you need to rebrand from blue to purple: change the value once in ResourceDictionary, everywhere understands the intent.
+**Do NOT add Syncfusion theme ResourceDictionaries to `MergedDictionaries`** — themes are applied at runtime via `SfSkinManager` only (see Section 8).
 
-### 7.2 Resource Hierarchy (Levels)
+### Semantic Naming Convention (Mandatory)
 
-**Level 1: Primitive Resources**
-- Base colors (SolidColorBrush), spacing units (Double), font sizes (Double)
-- Syncfusion WPF theme provides these; you customize via overrides
-- Example: `PrimaryColorBrush`, `SpaceSmallValue`, `BodyFontSize`
+Use role-based names, not value-based names:
 
-**Level 2: Semantic Resources**
-- Composed from primitives, role-based
-- `TextColorBrush: {uses PrimaryColorBrush dark shade}` (semantic: "text should be dark primary")
-- `controlGapValue: {uses LargeSpacingValue}` (semantic: "controls space by large units")
-- `StateTransitionDuration: {animation duration}` (semantic: "standard state changes take X duration")
+| ❌ Descriptive (avoid) | ✅ Semantic (use) |
+|---|---|
+| `BlueColorBrush600` | `PrimaryColorBrush` |
+| `PaddingValue16` | `SpaceLarge` |
+| `Font14px` | `HeadingFontSize` |
 
-**Level 3: control Resources (Optional)**
-- Highly specific to controls
-- Example: `ButtonPaddingValue: {uses SmallSpacingValue}` (button-specific override)
-- Only create if you have many control-specific values
+### Resource Hierarchy
 
-**Why This Hierarchy Matters:**
-- Primitives stay stable (Syncfusion WPF theme-specific)
-- Semantics stay stable (intent-based, survives design changes)
-- control resources are rare and explicit
-
-### 7.3 Where Tokens Live (XAML)
-
-**WPF uses ResourceDictionary files for token storage:**
-
-**App-Level Themes:**
-```xaml
-<!-- App.xaml -->
-<Application.Resources>
-  <ResourceDictionary>
-    <ResourceDictionary.MergedDictionaries>
-      <ResourceDictionary Source="Themes/Colors.xaml" />
-      <ResourceDictionary Source="Themes/Spacing.xaml" />
-      <ResourceDictionary Source="Themes/Typography.xaml" />
-    </ResourceDictionary.MergedDictionaries>
-  </ResourceDictionary>
-</Application.Resources>
-```
-
-**File Organization:**
-- `Themes/Colors.xaml` - All color resources (SolidColorBrush)
-- `Themes/Spacing.xaml` - All spacing resources (Double values for margins/padding)
-- `Themes/Typography.xaml` - All font resources (FontSize, FontFamily, FontWeight)
-- `Themes/DarkTheme.xaml` - Dark mode overrides (optional)
-
-**Decision Point:** Are you using Syncfusion WPF theme defaults or creating custom token files?
-- Default: Faster, integrates with Syncfusion controls
-- Custom: More control, requires discipline to maintain consistency
-
-**Output:** XAML token architecture understood
+1. **Primitives** — base SolidColorBrush, Double spacing, FontSize values
+2. **Semantic** — role-based resources composed from primitives (`TextColorBrush`, `ControlGap`)
+3. **Control-level** — sparingly, only for control-specific overrides (`ButtonPadding`)
 
 ---
 
-## 8. Syncfusion WPF control Integration
+## 8. Syncfusion WPF Control Integration
 
-### 8.1 Inbuilt Theme Support (SfSkinManager)
+### Theme Application via SfSkinManager (MANDATORY)
 
-**Principle:** Use Syncfusion's `SfSkinManager` for unified theming across all Syncfusion and native WPF controls. This is the recommended approach for modern WPF and .NET Standard projects.
+✅ Apply Syncfusion themes at runtime using `SfSkinManager`.
+❌ Do NOT merge Syncfusion theme ResourceDictionaries into `Application.Resources`.
 
-- **Global Application Theme:** Set `SfSkinManager.ApplicationTheme` in `App.xaml.cs` to apply a theme across the entire application.
-- **Default Styles:** Set `SfSkinManager.ApplyThemeAsDefaultStyle = true` to ensure all controls (including native ones) inherit the selected Syncfusion theme.
-- **Individual Control Theme:** Use the `SfSkinManager.Theme` attached property in XAML or `SfSkinManager.SetTheme()` in C# for specific window or control overrides.
-
-**MANDATORY: Install Theme Packages**
-To apply a Syncfusion theme, you MUST install the corresponding NuGet package for the selected theme:
-
-| Theme Name | NuGet Package |
-|-----------|---------------|
-| `Windows11Light` | `Syncfusion.Themes.Windows11Light.WPF` |
-| `Windows11Dark` | `Syncfusion.Themes.Windows11Dark.WPF` |
-| `FluentLight` | `Syncfusion.Themes.FluentLight.WPF` |
-| `FluentDark` | `Syncfusion.Themes.FluentDark.WPF` |
-| `Material3Light` | `Syncfusion.Themes.Material3Light.WPF` |
-| `Material3Dark` | `Syncfusion.Themes.Material3Dark.WPF` |
-| `Office2019Colorful`| `Syncfusion.Themes.Office2019Colorful.WPF`|
-
-**C# Implementation (Window.xaml.cs):**
+**App.xaml.cs — `OnStartup()`:**
 ```csharp
 using Syncfusion.SfSkinManager;
-using Syncfusion.Themes.Material3.WPF; // Requires Syncfusion.Themes.Material3.WPF NuGet
 
-public partial class MyGeneratedWindow : Window
+protected override void OnStartup(StartupEventArgs e)
 {
-    public MyGeneratedWindow()
-    {
-        InitializeComponent();
-
-        // 1. Enable theme as default for all controls in this scope
-        SfSkinManager.ApplyThemeAsDefaultStyle = true;
-        
-        // 2. Set the theme for this specific window instance (after installing package)
-        SfSkinManager.SetTheme(this, new Theme("Material3Light"));
-    }
+    base.OnStartup(e);
+    SyncfusionLicenseProvider.RegisterLicense(Environment.GetEnvironmentVariable("SYNCFUSION_LICENSE_KEY"));
+    SfSkinManager.ApplyStylesOnApplication = true;
 }
 ```
 
-### 8.1.1 WinForms Control Inbuilt Theme Support
-Syncfusion provides inbuilt theme support for WinForms controls within WPF applications using the `SkinManager`.
+**Per-Window (Window constructor):**
+```csharp
+using Syncfusion.SfSkinManager;
 
-- **Control Alignment:** Ensure `SfSkinManager.SetTheme(control, new Theme("ThemeName"))` is used for individual control skinning.
-- **Visual Consistency:** Use the same theme name for both WPF and hosted WinForms controls to maintain UI harmony.
+public MyWindow()
+{
+    InitializeComponent();
+    SfSkinManager.SetTheme(this, new Theme("Windows11Light")); // Use locked theme name
+}
+```
 
-### 8.2 Theme Customization (Programmatic)
+**For further customization:** Refer to `skills/syncfusion-wpf-theming/SKILL.md` for `ThemeSettings`, palette overrides, and runtime theme switching.
 
-**Decision Point:** If the built-in themes don't match your brand perfectly, use `ThemeSettings` classes to customize the palette at runtime.
+### Custom Resource Coordination
 
-1. Create a theme settings instance (e.g., `Material3LightThemeSettings`).
-2. Define a custom `Palette` (PrimaryColor, AccentColor, etc.).
-3. Register the settings using `SfSkinManager.RegisterThemeSettings()`.
+- ✅ If custom app-level colors are needed (not covered by Syncfusion theme): define in `<Application.Resources>` directly — NOT in `Themes/Colors.xaml`
+- ✅ Reference token resources in control styles — never hardcode values on controls
+- ❌ Do not set `Background="#FF0000"` directly on controls — use a `SolidColorBrush` resource key
+- ❌ Do not create separate theme files (`Themes/Colors.xaml`) when `SfSkinManager` is active
 
-**📖 For Advanced Customization:**
-Refer to **Skill: syncfusion-wpf-theming** → **skin-manager-setup.md** and **theme-customization.md** for technical implementation details.
+### Runtime Issue Prevention
 
-### 8.3 Custom XAML Coordination
-
-**Non-Obvious Pattern:** Don't override Syncfusion control colors directly in individual controls. Instead:
-
-1. Define your color system in ResourceDictionary tokens
-2. Syncfusion WPF theme provides base styling
-3. Custom XAML styles layer on top, using your token resources
-
-**Example thinking:**
-- ❌ Set DataGrid header `Background="#FF0000"` directly
-- ✅ Define `PrimaryColorBrush` in ResourceDictionary, then reference it in DataGrid style override
-
-This keeps styling coordinated and maintainable.
-
-### ⚠️ 8.4 Runtime Issue Prevention for Theme Integration
-
-**Critical Theme-Related Runtime Errors (Prevent in Stage 5-7):**
-
-1. **Theme Package Not Installed Runtime Error:**
-   - **Problem:** If theme selected (e.g., "Windows11Light") but NuGet package `Syncfusion.Themes.Windows11Light.WPF` not installed → `System.IO.FileNotFoundException` when `SfSkinManager.SetTheme()` executes
-   - **Prevention:** Stage 7 MUST include theme package matching this Stage 4 selection
-   - **Example:** Stage 4 picks "Windows11Light" → Stage 7 installs `Syncfusion.Themes.Windows11Light.WPF` (EXACT package name from stage-4 decision)
-
-2. **SfSkinManager Assembly Not Referenced Runtime Error:**
-   - **Problem:** If stage-5 generates `SfSkinManager.SetTheme(this, new Theme("Windows11Light"))` but NuGet `Syncfusion.SfSkinManager.WPF` not installed → `Type 'Syncfusion.SfSkinManager.SfSkinManager' not found` compilation error
-   - **Prevention:** Stage 7 MUST add `Syncfusion.SfSkinManager.WPF` to dependency list BEFORE user installs
-   - **Check:** If theming is used, verify SfSkinManager package is in Stage 7 output
-
-3. **ResourceDictionary Merge Order Runtime Error:**
-   - **Problem:** If theme ResourceDictionary merged AFTER control styles in App.xaml → controls don't inherit theme colors (fallback to defaults)
-   - **Prevention:** Verify App.xaml MergedDictionaries has theme first:
-   ```xaml
-   <Application.Resources>
-     <ResourceDictionary>
-       <ResourceDictionary.MergedDictionaries>
-         <!-- Theme FIRST -->
-         <ResourceDictionary Source="Themes/Windows11Light.xaml" />
-         <!-- Then custom styles -->
-         <ResourceDictionary Source="Styles/CustomStyles.xaml" />
-       </ResourceDictionary.MergedDictionaries>
-     </ResourceDictionary>
-   </Application.Resources>
-   ```
-   - Stage 5 MUST generate code that follows this order
-
-4. **Incompatible Syncfusion Version Runtime Error:**
-   - **Problem:** If theme package version doesn't match control package version → `System.TypeLoadException: Type initializer threw exception` at runtime
-   - **Prevention:** Stage 7 detects Syncfusion version from .csproj (Stage 2), applies SAME version to ALL packages:
-     - `Syncfusion.Themes.Windows11Light.WPF@20.4.0.56` (matches control version)
-     - `Syncfusion.SfDataGrid.WPF@20.4.0.56` (same)
-     - `Syncfusion.Licensing@20.4.0.56` (same)
-   - Stage 7 MUST enforce version consistency
-
-**Application Type Exception:**
-If building creative/design tools, you may need custom Syncfusion control styles aligned with your tool's visual language. Stage 5 will handle this based on your decisions here.
-
-**📖 For Resource Customization:**
-Refer to **Skill: syncfusion-wpf-themes** → **Resource Customization** for:
-- XAML resource structure for each Syncfusion WPF theme
-- Customizing primary, success, warning, danger, info color brushes
-- Runtime theme switching with ResourceDictionary.MergedDictionaries
-- Theme-specific resource formats (SolidColorBrush with ARGB values)
-
-Skill file can be referenced from:
-- `.codestudio/skills/syncfusion-wpf-themes/SKILL.md`
-- `.agent/skills/syncfusion-wpf-themes/SKILL.md`
-- `.agents/skills/syncfusion-wpf-themes/SKILL.md`
-- `.github/skills/syncfusion-wpf-themes/SKILL.md`
-- `skills/syncfusion-wpf-themes/SKILL.md`
-
-**Output:** Syncfusion integration strategy decided
+| Issue | Prevention |
+|---|---|
+| Theme NuGet package not installed | Stage 6 MUST install `Syncfusion.Themes.<ThemeName>.WPF` matching locked theme |
+| `SfSkinManager` assembly not found | Stage 6 MUST include `Syncfusion.SfSkinManager.WPF` in dependency list |
+| Version mismatch between theme and control packages | All Syncfusion packages use the version detected in Stage 2 |
 
 ---
 
-## 9. Load Your Application Reference (MANDATORY)
+## 9. MVVM Integration Bridge (CRITICAL)
 
-**REQUIRED STEP:** Your application type from Sections 1-2 now determines your implementation guide.
+Every interactive UI element defined in Stage 4 must have a corresponding ViewModel connection declared here. Stage 5 uses this mapping to wire all bindings and commands — unbound controls will not function.
 
-### Auto-Detected Application Reference
+### Mandatory Binding Rules
 
-Based on your **WPF Application Philosophy** selection in Section 1 and **Syncfusion WPF Theme Alignment** in Section 2, your application reference is automatically locked:
+| UI Element | Required MVVM Connection | Example |
+|---|---|---|
+| Input field (`SfTextInputLayout`, `TextBox`) | Two-way bound ViewModel property | `{Binding Email, Mode=TwoWay}` |
+| Action button (`ButtonAdv`) | `ICommand` in ViewModel | `Command="{Binding LoginCommand}"` |
+| Selection control (`ComboBoxAdv`, `SfDataGrid`) | Bound `SelectedItem` / `ItemsSource` | `ItemsSource="{Binding Items}"` |
+| Toggle / checkbox | Bound bool property | `IsChecked="{Binding RememberMe}"` |
+| Navigation (screen transition) | Triggered via ViewModel command, not code-behind | `Command="{Binding NavigateToDashboardCommand}"` |
+| Error / status display | Bound read-only ViewModel property | `Text="{Binding ErrorMessage}"` |
 
-**Enterprise Application Reference - What this reference provides:**
-- .NET Framework and .NET Core WPF setup with Syncfusion WPF controls
-- Material or Office2019 theme configuration
-- Token architecture for professional, data-centric design
-- DataGrid-heavy control patterns (SfDataGrid, SfChart, SfScheduler)
-- DPI-aware layouts for multi-monitor enterprise environments
-- Syncfusion Enterprise theme integration
-- Stage 6 validation checklist for enterprise WPF projects
+**Validation gate:**
+```
+FOR EACH interactive UI element in control-mapping.json:
+  IF no {Binding} or Command binding declared
+  → FAIL: "No MVVM connection on '<elementId>' — UI interaction will not work
+           Fix: add binding or command in Stage 5 code generation"
 
-**Key principle:** You'll define professional color schemes and dense information layouts using Material or Office2019 themes. Syncfusion WPF data controls handle complex business workflows.
+FOR EACH navigation flow (e.g., Login → Dashboard):
+  IF navigation is not triggered via a ViewModel ICommand
+  → FAIL: "Broken UI workflow: '<flow>' not wired via MVVM
+           Fix: implement NavigationCommand in ViewModel; open target Window on execute"
+```
 
-Refer to:
-- `.codestudio/skills/syncfusion-wpf-ui-builder/references/syncfusion-themes.md` for all theme details
-- `.agent/skills/syncfusion-wpf-ui-builder/references/wpf-dotnet-standards.md` for platform standards
+### Common Scenario Checklist
 
----
+| Scenario | MVVM Requirement |
+|---|---|
+| Login button → authenticate → navigate | `LoginCommand` in ViewModel; opens `DashboardWindow` on success |
+| Form field → validate on change | Property setter raises validation; `ErrorMessage` property updated |
+| Grid row selection → detail view | `SelectedItem` bound; command opens detail on selection changed |
+| Cancel / close button | `CloseCommand` calls `Window.Close()` via ViewModel |
 
-**Consumer Application Reference - What this reference provides:**
-- .NET Framework and .NET Core WPF setup with Syncfusion WPF controls
-- Fluent or Material theme configuration (modern aesthetics)
-- Token architecture for clarity and user guidance
-- control patterns emphasizing task completion (buttons, forms, dialogs)
-- Responsive window sizing with DPI scaling
-- Syncfusion Consumer theme integration
-- Stage 6 validation checklist for consumer WPF projects
-
-**Key principle:** You'll balance efficiency with approachability using modern Fluent or Material themes. Focus on clear task flows and user guidance in XAML layouts.
-
-Refer to skill files at:
-- `.codestudio/skills/syncfusion-wpf-ui-builder/{.agent-root}/skills/syncfusion-wpf-ui-builder/SKILL.md`
-- `.agent/skills/syncfusion-wpf-ui-builder/SKILL.md`
-- `.agents/skills/syncfusion-wpf-ui-builder/SKILL.md`
-- `.github/skills/syncfusion-wpf-ui-builder/SKILL.md`
-- `skills/syncfusion-wpf-ui-builder/SKILL.md`
+❌ Do NOT leave any Button, input, or navigation trigger without a ViewModel binding or command.
 
 ---
 
-**LOB Application Reference - What this reference provides:**
-- .NET Framework and .NET Core WPF setup with Syncfusion WPF controls
-- Office2019 or Material theme configuration (familiar productivity focus)
-- Token architecture for domain-specific workflows
-- control patterns for expert user optimization (menus, toolbars, docking panels)
-- DPI-aware layouts preserving information density
-- Syncfusion LOB theme integration
-- Stage 6 validation checklist for LOB WPF projects
+## 10. Load Your Application Reference (MANDATORY)
 
-**Key principle:** You'll design for domain experts using Office2019 or Material themes. Syncfusion WPF controls enable complex workflow automation and specialized data visualization.
+Based on the application type confirmed in Section 1, load the corresponding skill reference before proceeding to Stage 5. Reference files are located at any of:
 
-Refer to skill files at:
-- `.codestudio/skills/syncfusion-wpf-ui-builder/SKILL.md`
-- `.agent/skills/syncfusion-wpf-ui-builder/SKILL.md`
-- `.agents/skills/syncfusion-wpf-ui-builder/SKILL.md`
-- `.github/skills/syncfusion-wpf-ui-builder/SKILL.md`
-- `skills/syncfusion-wpf-ui-builder/SKILL.md`
+```
+<skills-root>/syncfusion-wpf-ui-builder/references/
+<skills-root>/syncfusion-wpf-theming/SKILL.md
+```
 
----
+Where `<skills-root>` is one of: `.codestudio/skills`, `.agent/skills`, `.agents/skills`, `.github/skills`, `skills`
 
-**Creative Application Reference - What this reference provides:**
-- .NET Framework and .NET Core WPF setup with Syncfusion WPF controls
-- Fluent Dark or Material Dark theme configuration (dark mode first)
-- Token architecture for dark mode with reduced eye strain
-- control patterns supporting creative workflows (panels, docking, customization)
-- DPI-aware canvas and precision controls
-- Syncfusion Dark theme integration
-- Stage 6 validation checklist for creative WPF projects
+| Application Type | Theme Focus | Key Reference |
+|---|---|---|
+| **Enterprise** | Material or Office2019 — data density, professional | `references/syncfusion-themes.md` + `references/wpf-dotnet-standards.md` |
+| **Consumer** | FluentLight or Material3Light — modern, approachable | `references/syncfusion-themes.md` |
+| **LOB** | Office2019 or Material — expert workflows, productivity | `references/syncfusion-themes.md` + `references/wpf-dotnet-standards.md` |
+| **Creative** | FluentDark or Material3Dark — dark mode, customization | `references/syncfusion-themes.md` |
 
-**Key principle:** You'll design for focused creative work using dark themes and custom XAML. Syncfusion WPF controls are customized heavily for creative interactions.
-
-Refer to skill files at:
-- `.codestudio/skills/syncfusion-wpf-ui-builder/SKILL.md`
-- `.agent/skills/syncfusion-wpf-ui-builder/SKILL.md`
-- `.agents/skills/syncfusion-wpf-ui-builder/SKILL.md`
-- `.github/skills/syncfusion-wpf-ui-builder/SKILL.md`
-- `skills/syncfusion-wpf-ui-builder/SKILL.md`
+⛔ **You cannot proceed to Stage 5 without loading your application reference.**
 
 ---
 
-**You cannot proceed to Stage 5 without reviewing your application reference.**
+## 11. Stage 4 Decision Checklist
 
-**Output:** Application implementation reference locked based on your Section 1-2 decisions
+Confirm all items are locked before proceeding.
 
----
-
-## 10. Stage 4 Decision Checklist
-
-**Load Your Application Reference (MANDATORY)**
-
-**Upon completion, confirm the following decisions are locked:**
-
-### Application Type & Theme
-- ✅ Application type confirmed (Enterprise/Consumer/LOB/Creative)
-- ✅ Syncfusion WPF theme selected and documented (refer to **syncfusion-themes.md** for all variants: Windows11Light/Dark, FluentLight/Dark, Material3 variants, Material variants, Office2019 variants, SystemTheme)
-- ✅ Application philosophy understood (why this theme for this application)
-- ✅ Skill file discovery paths confirmed - can reference from:
-  - `.codestudio/skills/syncfusion-wpf-ui-builder/SKILL.md`
-  - `.agent/skills/syncfusion-wpf-ui-builder/SKILL.md`
-  - `.agents/skills/syncfusion-wpf-ui-builder/SKILL.md`
-  - `.github/skills/syncfusion-wpf-ui-builder/SKILL.md`
-  - `skills/syncfusion-wpf-ui-builder/SKILL.md`
+### Application & Theme
+- ✅ Application type confirmed (Enterprise / Consumer / LOB / Creative)
+- ✅ Syncfusion WPF theme selected and documented
+- ✅ Theme NuGet package name recorded (e.g., `Syncfusion.Themes.Windows11Light.WPF`)
+- ✅ Application reference file loaded (Section 9)
 
 ### Color System
-- ✅ Color space decided (OKLCH or XAML hex colors)
-- ✅ Primary/semantic colors defined (SolidColorBrush resources)
-- ✅ Tinted neutrals strategy understood
-- ✅ Dark mode decision made (light only / dark only / both)
+- ✅ Primary, semantic, and neutral palette defined
+- ✅ Custom colors (if any) defined in `<Application.Resources>` — NOT in `Themes/Colors.xaml` when Syncfusion theme active
+- ✅ Dark mode decision made (light only / use matching dark theme name)
+- ✅ WCAG contrast ≥ 4.5:1 verified
 
-### Spacing & Typography (DPI-Aware)
-- ✅ Spacing grid confirmed (4px base units at 96 DPI standard)
-- ✅ DPI scaling understood (4px → 5px at 125%, 6px at 150%, etc.)
-- ✅ Typography hierarchy locked (modular scale ratio for font sizes)
-- ✅ Line height rules applied (readability standards for XAML TextBlock)
+### Spacing & Typography
+- ✅ 4pt base spacing grid defined (tokens or Syncfusion theme defaults)
+- ✅ Typography modular scale (1.25 ratio recommended)
+- ✅ Minimum body font ≥ 10pt; line height 1.4–1.6
 
-### Responsive Design (Window-Based)
-- ✅ Window sizing strategy decided (fluid layouts vs fixed minimum sizes)
-- ✅ Layout panel strategy confirmed (Grid/StackPanel/DockPanel responsiveness)
+### Responsive Design
+- ✅ Fluid layout strategy confirmed (Grid with `*` sizing)
 - ✅ Per-monitor DPI awareness enabled
-- ✅ Multi-monitor scaling tested
+- ✅ Minimum window size set only where required
 
 ### Accessibility
-- ✅ Motion standards applied (100ms / 300ms / 500ms animation durations)
-- ✅ Reduced motion support confirmed (prefers-reduced-motion behavior)
-- ✅ Focus targets sized (44x44px minimum device-independent units)
-- ✅ Color contrast verified (WCAG AA or AAA goal)
+- ✅ Animation durations: 100ms / 300ms / 500ms
+- ✅ Reduced motion: duration → 0ms when OS setting enabled
+- ✅ Touch targets ≥ 44×44 DIP
+- ✅ `AutomationProperties` plan confirmed for all interactive controls
 
 ### XAML Token Architecture
-- ✅ Token storage location decided:
-  - **ResourceDictionary files:** Themes/Colors.xaml, Themes/Spacing.xaml, Themes/Typography.xaml
-  - **Theme organization:** Primitives → Semantic → control resources
-  - **Dark mode:** Separate dark override ResourceDictionary (optional)
-- ✅ Semantic resource naming understood (not descriptive)
-- ✅ Implementation approach locked:
-  - **All themes:** Use XAML ResourceDictionary (no CSS)
-  - **Syncfusion controls:** Inherit from theme via MergedDictionaries
-  - **Custom overrides:** Reference token resources, don't hard-code colors
+- ✅ Semantic resource naming applied (role-based, not value-based)
+- ✅ Custom resources (if any) in `<Application.Resources>` only — no separate theme files when SfSkinManager active
+- ✅ Syncfusion theme applied via `SfSkinManager` — NOT via `MergedDictionaries`
 
-### Syncfusion WPF Integration
-- ✅ Theme registration confirmed (App.xaml ResourceDictionary.MergedDictionaries - see **syncfusion-themes.md** for XAML paths)
-- ✅ Color coordination strategy understood (inherit from theme, don't override individual controls)
-- ✅ NuGet package requirements confirmed (Syncfusion.Sf*.WPF packages match theme - verify in **syncfusion-themes.md** package table)
+### MVVM Integration
+- ✅ Every interactive control (button, input, grid) has a declared ViewModel binding or command
+- ✅ Every navigation flow (e.g., Login → Dashboard) wired via `ICommand` in ViewModel
+- ✅ Error/status display bound to ViewModel property
+- ✅ No UI control left without a ViewModel connection
 
-### Application Reference (MANDATORY)
-- ✅ Application-specific reference file loaded (Enterprise/Consumer/LOB/Creative)
-- ✅ Implementation guide understood for your application type
-- ✅ Ready to proceed to Stage 5 with design system decisions locked
+### Syncfusion Integration
+- ✅ `SfSkinManager.ApplyStylesOnApplication = true` in `OnStartup()`
+- ✅ `SfSkinManager.SetTheme(this, new Theme("<LockedThemeName>"))` per Window
+- ✅ All Syncfusion package versions consistent with Stage 2 detection
 
 ---
 
-## What Stage 5 Does With These Decisions
+## 12. What Stage 5 Does With These Decisions
 
-Stage 5 (Code Generation) uses your Stage 4 decisions to generate:
-- **WPF project setup** with correct Syncfusion WPF theme imports (App.xaml ResourceDictionary)
-- **ResourceDictionary token files** in XAML format (Colors.xaml, Spacing.xaml, Typography.xaml)
-- **Base control styles** following your accessibility standards (XAML Style resources)
-- **Responsive layouts** using WPF layout panels aligned to your window-sizing strategy
-- **Syncfusion WPF control integration** that respects your ResourceDictionary token system
+Stage 5 generates implementation — not decisions. It uses Stage 4 output to produce:
 
-Stage 5 generates *implementation*, not *decisions*. The decisions you locked in Stage 4 ensure Stage 5 output is consistent and coherent.
+| Stage 4 Decision | Stage 5 Output |
+|---|---|
+| Locked theme + SfSkinManager pattern | `SfSkinManager.SetTheme()` calls in every Window constructor |
+| Custom color resources (if any) | `SolidColorBrush` entries in `<Application.Resources>` — no separate theme files |
+| Semantic resource naming | All XAML controls reference token keys, never hardcoded values |
+| Responsive layout strategy | Grid with `*` sizing; no hardcoded pixel widths |
+| Accessibility standards | `AutomationProperties`, min touch targets, focus rings on all interactive controls |
+| **MVVM integration map (Section 8A)** | Every button → `Command` binding; every input → `{Binding}` property; every navigation → `ICommand` in ViewModel |
+| Application reference (Section 9) | Code patterns aligned to application type |
 
----
-
-### For All WPF Projects:
-- ✅ Syncfusion WPF imports match locked theme (Material/Fluent/Office2019/Windows11)
-- ✅ WCAG 2.1 AA accessibility (contrast, focus states, keyboard navigation, AutomationProperties)
-- ✅ DPI-aware sizing verified (96 DPI standard, 125%/150%/200% scaling supported)
-- ✅ Window responsiveness tested (fluid layouts on resize)
-- ✅ C# compilation without errors
-- ✅ Build optimization (assembly trimming, resource compression)
+✅ All Stage 5 code is consistent with and traceable to decisions locked here.
 
 **Output:** Production-ready WPF code aligned with Stage 4 design decisions
-
